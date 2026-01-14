@@ -1,121 +1,146 @@
 #include "scanner.hpp"
-#include "../common/common.hpp"
+#include <cstring>
 
-Scanner::Scanner(const std::string& src) : source(src) {
-    keywords = {
-        {"and", TokenType::AND}, {"class", TokenType::CLASS}, {"else", TokenType::ELSE},
-        {"false", TokenType::FALSE}, {"for", TokenType::FOR}, {"fun", TokenType::FUN},
-        {"if", TokenType::IF}, {"nil", TokenType::NIL}, {"or", TokenType::OR},
-        {"print", TokenType::PRINT}, {"return", TokenType::RETURN}, {"super", TokenType::SUPER},
-        {"this", TokenType::THIS}, {"true", TokenType::TRUE}, {"var", TokenType::VAR},
-        {"while", TokenType::WHILE}
-    };
-}
+Scanner::Scanner(const std::string& source) : source(source) {}
 
-std::vector<Token> Scanner::scanTokens() {
-    while (!isAtEnd()) {
-        start = current;
-        scanToken();
-    }
-    tokens.emplace_back(TokenType::EOF, "", 0, line);
-    return tokens;
-}
+Token Scanner::scanToken() {
+    skipWhitespace();
+    start = current;
 
-void Scanner::scanToken() {
+    if (isAtEnd()) return makeToken(TokenType::TOKEN_EOF);
+
     char c = advance();
+
+    if (isalpha(c)) return identifier();
+    if (isdigit(c)) return number();
+
     switch (c) {
-        case '(': addToken(TokenType::LEFT_PAREN); break;
-        case ')': addToken(TokenType::RIGHT_PAREN); break;
-        case '{': addToken(TokenType::LEFT_BRACE); break;
-        case '}': addToken(TokenType::RIGHT_BRACE); break;
-        case ',': addToken(TokenType::COMMA); break;
-        case '.': addToken(TokenType::DOT); break;
-        case '-': addToken(TokenType::MINUS); break;
-        case '+': addToken(TokenType::PLUS); break;
-        case ';': addToken(TokenType::SEMICOLON); break;
-        case '*': addToken(TokenType::STAR); break;
-        case '!': addToken(match('=') ? TokenType::BANG_EQUAL : TokenType::BANG); break;
-        case '=': addToken(match('=') ? TokenType::EQUAL_EQUAL : TokenType::EQUAL); break;
-        case '<': addToken(match('=') ? TokenType::LESS_EQUAL : TokenType::LESS); break;
-        case '>': addToken(match('=') ? TokenType::GREATER_EQUAL : TokenType::GREATER); break;
-        case '/':
-            if (match('/')) {
-                while (peek() != '\n' && !isAtEnd()) advance();
-            } else {
-                addToken(TokenType::SLASH);
-            }
-            break;
-        case ' ':
-        case '\r':
-        case '\t':
-            break;
-        case '\n':
-            line++;
-            break;
-        case '"': string(); break;
-        default:
-            if (isdigit(c)) {
-                number();
-            } else if (isalpha(c) || c == '_') {
-                identifier();
-            } else {
-                addToken(TokenType::ERROR);
-            }
-            break;
+        case '(': return makeToken(TokenType::LEFT_PAREN);
+        case ')': return makeToken(TokenType::RIGHT_PAREN);
+        case '{': return makeToken(TokenType::LEFT_BRACE);
+        case '}': return makeToken(TokenType::RIGHT_BRACE);
+        case ';': return makeToken(TokenType::SEMICOLON);
+        case ',': return makeToken(TokenType::COMMA);
+        case '.': return makeToken(TokenType::DOT);
+        case '-': return makeToken(TokenType::MINUS);
+        case '+': return makeToken(TokenType::PLUS);
+        case '/': return makeToken(TokenType::SLASH);
+        case '*': return makeToken(TokenType::STAR);
+        case '!': return makeToken(match('=') ? TokenType::BANG_EQUAL : TokenType::BANG);
+        case '=': return makeToken(match('=') ? TokenType::EQUAL_EQUAL : TokenType::EQUAL);
+        case '<': return makeToken(match('=') ? TokenType::LESS_EQUAL : TokenType::LESS);
+        case '>': return makeToken(match('=') ? TokenType::GREATER_EQUAL : TokenType::GREATER);
+        case '"': return string();
     }
+
+    return errorToken("Unexpected character.");
 }
 
-void Scanner::addToken(TokenType type) {
-    addToken(type, "");
+bool Scanner::isAtEnd() const {
+    return current >= source.length();
 }
 
-void Scanner::addToken(TokenType type, std::string literal) {
-    std::string text = source.substr(start, current - start);
-    tokens.emplace_back(type, source.c_str() + start, current - start, line);
+char Scanner::advance() {
+    current++;
+    return source[current - 1];
 }
-
-bool Scanner::isAtEnd() const { return current >= source.size(); }
-
-char Scanner::advance() { return source[current++]; }
 
 bool Scanner::match(char expected) {
-    if (isAtEnd() || source[current] != expected) return false;
+    if (isAtEnd()) return false;
+    if (source[current] != expected) return false;
     current++;
     return true;
 }
 
-char Scanner::peek() const { return isAtEnd() ? '\0' : source[current]; }
+char Scanner::peek() const {
+    if (isAtEnd()) return '\0';
+    return source[current];
+}
 
-char Scanner::peekNext() const { return current + 1 >= source.size() ? '\0' : source[current + 1]; }
+char Scanner::peekNext() const {
+    if (current + 1 >= source.length()) return '\0';
+    return source[current + 1];
+}
 
-void Scanner::string() {
+void Scanner::skipWhitespace() {
+    for (;;) {
+        char c = peek();
+        switch (c) {
+            case ' ':
+            case '\r':
+            case '\t':
+                advance();
+                break;
+            case '\n':
+                line++;
+                advance();
+                break;
+            case '/':
+                if (peekNext() == '/') {
+                    while (peek() != '\n' && !isAtEnd()) advance();
+                } else {
+                    return;
+                }
+                break;
+            default:
+                return;
+        }
+    }
+}
+
+Token Scanner::string() {
     while (peek() != '"' && !isAtEnd()) {
         if (peek() == '\n') line++;
         advance();
     }
-    if (isAtEnd()) return addToken(TokenType::ERROR);
-    advance();
-    std::string value = source.substr(start + 1, current - start - 2);
-    addToken(TokenType::STRING, value);
+
+    if (isAtEnd()) return errorToken("Unterminated string.");
+
+    advance(); // The closing ".
+    return makeToken(TokenType::STRING);
 }
 
-void Scanner::number() {
+Token Scanner::number() {
     while (isdigit(peek())) advance();
+
     if (peek() == '.' && isdigit(peekNext())) {
-        advance();
+        advance(); // Consume the "."
         while (isdigit(peek())) advance();
     }
-    addToken(TokenType::NUMBER, source.substr(start, current - start));
+
+    return makeToken(TokenType::NUMBER);
 }
 
-void Scanner::identifier() {
-    while (isalnum(peek()) || peek() == '_') advance();
+Token Scanner::identifier() {
+    while (isalnum(peek())) advance();
+    return makeToken(identifierType());
+}
+
+TokenType Scanner::identifierType() {
     std::string text = source.substr(start, current - start);
-    auto it = keywords.find(text);
-    TokenType type = (it != keywords.end()) ? it->second : TokenType::IDENTIFIER;
-    addToken(type);
+    if (text == "and") return TokenType::AND;
+    if (text == "class") return TokenType::CLASS;
+    if (text == "else") return TokenType::ELSE;
+    if (text == "false") return TokenType::FALSE;
+    if (text == "fun") return TokenType::FUN;
+    if (text == "for") return TokenType::FOR;
+    if (text == "if") return TokenType::IF;
+    if (text == "nil") return TokenType::NIL;
+    if (text == "or") return TokenType::OR;
+    if (text == "print") return TokenType::PRINT;
+    if (text == "return") return TokenType::RETURN;
+    if (text == "super") return TokenType::SUPER;
+    if (text == "this") return TokenType::THIS;
+    if (text == "true") return TokenType::TRUE;
+    if (text == "var") return TokenType::VAR;
+    if (text == "while") return TokenType::WHILE;
+    return TokenType::IDENTIFIER;
 }
 
-std::string Token::toString() const {
-    return std::string(start, length);
+Token Scanner::makeToken(TokenType type) {
+    return Token(type, source.c_str() + start, current - start, line);
+}
+
+Token Scanner::errorToken(const char* message) {
+    return Token(TokenType::ERROR, message, (int)strlen(message), line);
 }

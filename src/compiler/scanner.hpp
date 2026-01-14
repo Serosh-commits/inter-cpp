@@ -11,7 +11,7 @@ enum class TokenType {
     IDENTIFIER, STRING, NUMBER,
     AND, CLASS, ELSE, FALSE, FUN, FOR, IF, NIL, OR,
     PRINT, RETURN, SUPER, THIS, TRUE, VAR, WHILE,
-    ERROR, EOF
+    ERROR, TOKEN_EOF
 };
 
 struct Token {
@@ -19,29 +19,32 @@ struct Token {
     const char* start;
     int length;
     int line;
+    Token() = default;
+    Token(TokenType type, const char* start, int length, int line)
+        : type(type), start(start), length(length), line(line) {}
     std::string toString() const;
 };
 
 class Scanner {
 public:
     Scanner(const std::string& source);
-    std::vector<Token> scanTokens();
+    Token scanToken();
+    bool isAtEnd() const;
 
 private:
-    void scanToken();
-    void addToken(TokenType type);
-    void addToken(TokenType type, std::string literal);
-    bool isAtEnd() const;
+    void skipWhitespace();
+    TokenType checkKeyword(int start, int length, const char* rest, TokenType type);
+    TokenType identifierType();
+    Token makeToken(TokenType type);
+    Token errorToken(const char* message);
     char advance();
     bool match(char expected);
     char peek() const;
     char peekNext() const;
-    void string();
-    void number();
-    void identifier();
+    Token string();
+    Token number();
+    Token identifier();
 
     const std::string source;
-    std::vector<Token> tokens;
     int start = 0, current = 0, line = 1;
-    std::unordered_map<std::string, TokenType> keywords;
 };

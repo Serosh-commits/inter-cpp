@@ -42,7 +42,7 @@ private:
         TERM, FACTOR, UNARY, CALL, PRIMARY
     };
 
-    using ParseFn = void (Parser::*)();
+    using ParseFn = void (Parser::*)(bool canAssign);
     struct ParseRule {
         ParseFn prefix;
         ParseFn infix;
@@ -51,20 +51,26 @@ private:
 
     void parsePrecedence(Precedence precedence);
     ParseRule* getRule(TokenType type);
-    void grouping();
-    void unary();
-    void binary();
-    void number();
-    void literal();
-    void string();
+    void grouping(bool canAssign);
+    void unary(bool canAssign);
+    void binary(bool canAssign);
+    void number(bool canAssign);
+    void literal(bool canAssign);
+    void string(bool canAssign);
     void variable(bool canAssign);
     void namedVariable(const Token& name, bool canAssign);
-    void and_();
-    void or_();
-    void call();
+    void and_(bool canAssign);
+    void or_(bool canAssign);
+    void call(bool canAssign);
     void dot(bool canAssign);
-    void this_();
-    void super_();
+    void this_(bool canAssign);
+    void super_(bool canAssign);
+
+    void emitConstant(Value value);
+    void beginScope();
+    void endScope();
+    int resolveLocal(const std::string& name);
+    uint8_t argumentList();
 
     Chunk* currentChunk();
     void emitByte(uint8_t byte);
@@ -74,6 +80,7 @@ private:
     void patchJump(int offset);
     void emitLoop(int loopStart);
     int makeConstant(Value value);
+    void defineMethod(ObjString* name);
     void endCompiler();
 
     ObjFunction* compiling = nullptr;
