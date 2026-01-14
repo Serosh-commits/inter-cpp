@@ -1,6 +1,7 @@
 #pragma once
 #include "object.hpp"
 #include "string.hpp"
+#include "../value.hpp"
 
 class ObjClass : public Obj {
 public:

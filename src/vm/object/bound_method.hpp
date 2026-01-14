@@ -1,6 +1,7 @@
 #pragma once
 #include "object.hpp"
 #include "closure.hpp"
+#include "../value.hpp"
 
 class ObjBoundMethod : public Obj {
 public:

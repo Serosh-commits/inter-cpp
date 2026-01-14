@@ -1,5 +1,14 @@
 #include "vm.hpp"
 #include "../common/debug.hpp"
+#include "object/string.hpp"
+#include "object/function.hpp"
+#include "object/closure.hpp"
+#include "object/upvalue.hpp"
+#include "object/class.hpp"
+#include "object/instance.hpp"
+#include "object/bound_method.hpp"
+#include "object/native.hpp"
+#include "../compiler/parser.hpp"
 #include <cstdio>
 #include <cstdarg>
 #include <chrono>
@@ -54,7 +63,7 @@ bool VM::run() {
 #define READ_BYTE() (*frame->ip++)
 #define READ_SHORT() (frame->ip += 2, (uint16_t)((frame->ip[-2] << 8) | frame->ip[-1]))
 #define READ_CONSTANT() (frame->closure->function->chunk.constants[READ_BYTE()])
-#define READ_STRING() std::get<ObjString*>(READ_CONSTANT())
+#define READ_STRING() AS_STRING(READ_CONSTANT())
 #define BINARY_OP(op) \
     do { \
         if (!std::holds_alternative<double>(peek(0)) || !std::holds_alternative<double>(peek(1))) { \
@@ -86,9 +95,9 @@ bool VM::run() {
             case OpCode::FALSE: push(Value(false)); break;
 
             case OpCode::ADD: {
-                if (std::holds_alternative<ObjString*>(peek(0)) && std::holds_alternative<ObjString*>(peek(1))) {
-                    ObjString* b = std::get<ObjString*>(pop());
-                    ObjString* a = std::get<ObjString*>(pop());
+                if (isObjType(peek(0), Obj::Type::STRING) && isObjType(peek(1), Obj::Type::STRING)) {
+                    ObjString* b = AS_STRING(pop());
+                    ObjString* a = AS_STRING(pop());
                     push(Value(allocateString(a->str + b->str)));
                 } else if (std::holds_alternative<double>(peek(0)) && std::holds_alternative<double>(peek(1))) {
                     BINARY_OP(+);
@@ -215,7 +224,7 @@ bool VM::run() {
                 push(Value(newClass(READ_STRING())));
                 break;
             case OpCode::SET_PROPERTY: {
-                if (!std::holds_alternative<ObjInstance*>(peek(1))) {
+                if (!isObjType(peek(1), Obj::Type::INSTANCE)) {
                     runtimeError("Only instances have properties.");
                     return false;
                 }
@@ -227,7 +236,7 @@ bool VM::run() {
                 break;
             }
             case OpCode::GET_PROPERTY: {
-                if (!std::holds_alternative<ObjInstance*>(peek(0))) {
+                if (!isObjType(peek(0), Obj::Type::INSTANCE)) {
                     runtimeError("Only instances have properties.");
                     return false;
                 }
@@ -242,6 +251,9 @@ bool VM::run() {
                 if (!bindMethod(instance->klass, name)) return false;
                 break;
             }
+            case OpCode::METHOD:
+                defineMethod(READ_STRING());
+                break;
             case OpCode::INVOKE: {
                 ObjString* method = READ_STRING();
                 int argCount = READ_BYTE();
@@ -298,58 +310,66 @@ Value VM::clockNative(VM&, const std::vector<Value>&) {
 
 ObjString* VM::allocateString(std::string s) {
     ObjString* string = new ObjString(std::move(s));
-    objects = reinterpret_cast<Obj*>(string);
     string->next = objects;
+    objects = string;
     bytesAllocated += sizeof(ObjString) + string->str.capacity();
     return string;
 }
 
 ObjFunction* VM::newFunction() {
     ObjFunction* function = new ObjFunction();
-    objects = reinterpret_cast<Obj*>(function);
     function->next = objects;
+    objects = function;
     bytesAllocated += sizeof(ObjFunction);
     return function;
 }
 
 ObjClosure* VM::newClosure(ObjFunction* function) {
     ObjClosure* closure = new ObjClosure(function);
-    objects = reinterpret_cast<Obj*>(closure);
     closure->next = objects;
+    objects = closure;
     bytesAllocated += sizeof(ObjClosure) + sizeof(ObjUpvalue*) * function->upvalueCount;
     return closure;
 }
 
 ObjUpvalue* VM::newUpvalue(Value* slot) {
     ObjUpvalue* upvalue = new ObjUpvalue(slot);
-    objects = reinterpret_cast<Obj*>(upvalue);
-    upvalue->next = objects;
+    upvalue->Obj::next = objects;
+    objects = upvalue;
     bytesAllocated += sizeof(ObjUpvalue);
     return upvalue;
 }
 
 ObjClass* VM::newClass(ObjString* name) {
     ObjClass* klass = new ObjClass(name);
-    objects = reinterpret_cast<Obj*>(klass);
     klass->next = objects;
+    objects = klass;
     bytesAllocated += sizeof(ObjClass);
     return klass;
 }
 
 ObjInstance* VM::newInstance(ObjClass* klass) {
     ObjInstance* instance = new ObjInstance(klass);
-    objects = reinterpret_cast<Obj*>(instance);
     instance->next = objects;
+    objects = instance;
     bytesAllocated += sizeof(ObjInstance);
     return instance;
 }
 
 ObjBoundMethod* VM::newBoundMethod(Value receiver, ObjClosure* method) {
     ObjBoundMethod* bound = new ObjBoundMethod(receiver, method);
-    objects = reinterpret_cast<Obj*>(bound);
     bound->next = objects;
+    objects = bound;
     bytesAllocated += sizeof(ObjBoundMethod);
     return bound;
+}
+
+ObjNative* VM::newNative(NativeFn function, int arity) {
+    ObjNative* native = new ObjNative(function, arity);
+    native->next = objects;
+    objects = native;
+    bytesAllocated += sizeof(ObjNative);
+    return native;
 }
 
 void VM::markRoots() {
@@ -372,6 +392,55 @@ void VM::traceReferences() {
         Obj* object = grayStack.back();
         grayStack.pop_back();
         blackenObject(object);
+    }
+}
+
+void VM::blackenObject(Obj* object) {
+    switch (object->type) {
+        case Obj::Type::CLASS: {
+            ObjClass* klass = reinterpret_cast<ObjClass*>(object);
+            markObject(reinterpret_cast<Obj*>(klass->name));
+            for (auto& pair : klass->methods) {
+                markValue(pair.second);
+            }
+            break;
+        }
+        case Obj::Type::CLOSURE: {
+            ObjClosure* closure = reinterpret_cast<ObjClosure*>(object);
+            markObject(reinterpret_cast<Obj*>(closure->function));
+            for (int i = 0; i < closure->upvalues.size(); ++i) {
+                markObject(reinterpret_cast<Obj*>(closure->upvalues[i]));
+            }
+            break;
+        }
+        case Obj::Type::FUNCTION: {
+            ObjFunction* function = reinterpret_cast<ObjFunction*>(object);
+            markObject(reinterpret_cast<Obj*>(function->name));
+            for (Value constant : function->chunk.constants) {
+                markValue(constant);
+            }
+            break;
+        }
+        case Obj::Type::INSTANCE: {
+            ObjInstance* instance = reinterpret_cast<ObjInstance*>(object);
+            markObject(reinterpret_cast<Obj*>(instance->klass));
+            for (auto& pair : instance->fields) {
+                markValue(pair.second);
+            }
+            break;
+        }
+        case Obj::Type::BOUND_METHOD: {
+            ObjBoundMethod* bound = reinterpret_cast<ObjBoundMethod*>(object);
+            markValue(bound->receiver);
+            markObject(reinterpret_cast<Obj*>(bound->method));
+            break;
+        }
+        case Obj::Type::UPVALUE:
+            markValue(((ObjUpvalue*)object)->closed);
+            break;
+        case Obj::Type::NATIVE:
+        case Obj::Type::STRING:
+            break;
     }
 }
 
@@ -417,6 +486,7 @@ void VM::freeObject(Obj* object) {
         case Obj::Type::CLASS: delete static_cast<ObjClass*>(object); break;
         case Obj::Type::INSTANCE: delete static_cast<ObjInstance*>(object); break;
         case Obj::Type::BOUND_METHOD: delete static_cast<ObjBoundMethod*>(object); break;
+        case Obj::Type::NATIVE: delete static_cast<ObjNative*>(object); break;
     }
 }
 
@@ -429,8 +499,6 @@ void VM::freeObjects() {
     }
     grayStack.clear();
 }
-
-std::vector<Obj*> VM::grayStack;
 
 bool VM::call(ObjClosure* closure, int argCount) {
     if (argCount != closure->function->arity) {
@@ -474,8 +542,8 @@ bool VM::callValue(Value callee, int argCount) {
             case Obj::Type::CLOSURE:
                 return call(AS_CLOSURE(callee), argCount);
             case Obj::Type::NATIVE: {
-                NativeFn native = AS_NATIVE(callee);
-                Value result = native(*this, std::vector<Value>(stackTop - argCount, stackTop));
+                ObjNative* native = AS_NATIVE(callee);
+                Value result = native->function(*this, std::vector<Value>(stackTop - argCount, stackTop));
                 stackTop -= argCount + 1;
                 push(result);
                 return true;
@@ -490,7 +558,7 @@ bool VM::callValue(Value callee, int argCount) {
 
 bool VM::invoke(ObjString* name, int argCount) {
     Value receiver = peek(argCount);
-    if (!std::holds_alternative<ObjInstance*>(receiver)) {
+    if (!isObjType(receiver, Obj::Type::INSTANCE)) {
         runtimeError("Only instances have methods.");
         return false;
     }
@@ -586,6 +654,7 @@ std::string valueToString(const Value& value) {
         if (obj->type == Obj::Type::CLASS) return AS_CLASS(value)->name->str;
         if (obj->type == Obj::Type::INSTANCE) return AS_INSTANCE(value)->klass->name->str + " instance";
         if (obj->type == Obj::Type::BOUND_METHOD) return "<bound method>";
+        if (obj->type == Obj::Type::NATIVE) return "<native fn>";
     }
     return "<object>";
 }

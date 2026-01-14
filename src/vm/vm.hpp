@@ -3,6 +3,9 @@
 #include "object/object.hpp"
 #include "value.hpp"
 #include <array>
+#include <functional>
+
+using NativeFn = std::function<Value(VM&, const std::vector<Value>&)>;
 
 class CallFrame {
 public:
@@ -35,14 +38,6 @@ public:
     bool interpret(const std::string& source);
     void runtimeError(const char* format, ...);
 
-    void push(Value value) { *stackTop++ = value; }
-    Value pop() { return *--stackTop; }
-    Value peek(int distance) const { return stackTop[-1 - distance]; }
-
-private:
-    bool run();
-    void defineNative(const std::string& name, int arity, Value (*fn)(VM&, const std::vector<Value>&));
-
     ObjString* allocateString(std::string s);
     ObjFunction* newFunction();
     ObjClosure* newClosure(ObjFunction* function);
@@ -50,11 +45,32 @@ private:
     ObjClass* newClass(ObjString* name);
     ObjInstance* newInstance(ObjClass* klass);
     ObjBoundMethod* newBoundMethod(Value receiver, ObjClosure* method);
+    ObjNative* newNative(NativeFn function, int arity);
+
+    void push(Value value) { *stackTop++ = value; }
+    Value pop() { return *--stackTop; }
+    Value peek(int distance) const { return stackTop[-1 - distance]; }
+
+private:
+    bool run();
+    bool call(ObjClosure* closure, int argCount);
+    bool callValue(Value callee, int argCount);
+    bool invoke(ObjString* name, int argCount);
+    bool invokeFromClass(ObjClass* klass, ObjString* name, int argCount);
+    bool bindMethod(ObjClass* klass, const std::string& name);
+    ObjUpvalue* captureUpvalue(Value* local);
+    void closeUpvalues(Value* last);
+    void defineMethod(ObjString* name);
+
+    void defineNative(const std::string& name, int arity, Value (*fn)(VM&, const std::vector<Value>&));
+
+    std::vector<Obj*> grayStack;
 
     void markRoots();
     void traceReferences();
     void sweep();
     void markObject(Obj* object);
+    void blackenObject(Obj* object);
     void markValue(const Value& value);
     void freeObject(Obj* object);
     void freeObjects();

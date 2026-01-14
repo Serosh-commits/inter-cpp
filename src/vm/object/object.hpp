@@ -9,10 +9,11 @@ class ObjUpvalue;
 class ObjClass;
 class ObjInstance;
 class ObjBoundMethod;
+class ObjNative;
 
 class Obj {
 public:
-    enum class Type { STRING, FUNCTION, CLOSURE, UPVALUE, CLASS, INSTANCE, BOUND_METHOD };
+    enum class Type { STRING, FUNCTION, CLOSURE, UPVALUE, CLASS, INSTANCE, BOUND_METHOD, NATIVE };
     Type type;
     bool marked = false;
     Obj* next = nullptr;
@@ -22,13 +23,14 @@ public:
 };
 
 #define AS_OBJ(value)       (std::get<Obj*>(value))
-#define AS_STRING(value)    (AS_OBJ(value)->as<ObjString>())
-#define AS_CSTRING(value)   (AS_STRING(value)->c_str())
-#define AS_FUNCTION(value)  (AS_OBJ(value)->as<ObjFunction>())
-#define AS_CLOSURE(value)   (AS_OBJ(value)->as<ObjClosure>())
-#define AS_CLASS(value)     (AS_OBJ(value)->as<ObjClass>())
-#define AS_INSTANCE(value)  (AS_OBJ(value)->as<ObjInstance>())
-#define AS_BOUND(value)     (AS_OBJ(value)->as<ObjBoundMethod>())
+#define AS_STRING(value)    (as<ObjString>(AS_OBJ(value)))
+#define AS_CSTRING(value)   (AS_STRING(value)->str.c_str())
+#define AS_FUNCTION(value)  (as<ObjFunction>(AS_OBJ(value)))
+#define AS_CLOSURE(value)   (as<ObjClosure>(AS_OBJ(value)))
+#define AS_CLASS(value)     (as<ObjClass>(AS_OBJ(value)))
+#define AS_INSTANCE(value)  (as<ObjInstance>(AS_OBJ(value)))
+#define AS_BOUND(value)     (as<ObjBoundMethod>(AS_OBJ(value)))
+#define AS_NATIVE(value)    (as<ObjNative>(AS_OBJ(value)))
 
 template<typename T>
 inline T* as(Obj* obj) { return dynamic_cast<T*>(obj); }
