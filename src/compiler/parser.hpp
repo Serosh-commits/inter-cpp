@@ -1,6 +1,6 @@
 #pragma once
 #include "scanner.hpp"
-#include "../vm/vm.hpp"
+#include "vm/vm.hpp"
 
 class Parser {
 public:

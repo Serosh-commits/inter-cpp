@@ -1,7 +1,14 @@
 #pragma once
-#include "../common/common.hpp"
+#include "common/common.hpp"
 
 class VM;
+class ObjString;
+class ObjFunction;
+class ObjClosure;
+class ObjUpvalue;
+class ObjClass;
+class ObjInstance;
+class ObjBoundMethod;
 
 class Obj {
 public:
