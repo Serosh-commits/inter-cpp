@@ -322,16 +322,14 @@ void Parser::parsePrecedence(Precedence precedence) {
 
 Parser::ParseRule* Parser::getRule(TokenType type) {
     static ParseRule rules[] = {
-        {&Parser::grouping, &Parser::call, Precedence::CALL},       // LEFT_PAREN
-        {nullptr, nullptr, Precedence::NONE},       // RIGHT_PAREN
-        {nullptr, nullptr, Precedence::NONE},       // LEFT_BRACE
-        {nullptr, nullptr, Precedence::NONE},       // RIGHT_BRACE
-        {nullptr, nullptr, Precedence::NONE},       // COMMA
-        {nullptr, &Parser::dot, Precedence::CALL},       // DOT
-        {&Parser::unary, &Parser::binary, Precedence::TERM},       // MINUS
-        {nullptr, &Parser::binary, Precedence::TERM},       // PLUS
-        {nullptr, &Parser::binary, Precedence::FACTOR},       // SLASH
-        {nullptr, &Parser::binary, Precedence::FACTOR},       // STAR
+        {&Parser::grouping, &Parser::call, Precedence::CALL},       // LEFT_PAREN (0)
+        {nullptr, nullptr, Precedence::NONE},       // RIGHT_PAREN (1)
+        {nullptr, nullptr, Precedence::NONE},       // LEFT_BRACE (2)
+        {nullptr, nullptr, Precedence::NONE},       // RIGHT_BRACE (3)
+        {nullptr, nullptr, Precedence::NONE},       // COMMA (4)
+        {nullptr, &Parser::dot, Precedence::CALL},       // DOT (5)
+        {&Parser::unary, &Parser::binary, Precedence::TERM},       // MINUS (6)
+        {nullptr, &Parser::binary, Precedence::TERM},       // PLUS (7)
         {nullptr, nullptr, Precedence::NONE},       // SEMICOLON (8)
         {nullptr, &Parser::binary, Precedence::FACTOR},       // SLASH (9)
         {nullptr, &Parser::binary, Precedence::FACTOR},       // STAR (10)

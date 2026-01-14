@@ -1,5 +1,6 @@
 #include "scanner.hpp"
 #include <cstring>
+#include <cctype>
 
 Scanner::Scanner(const std::string& source) : source(source) {}
 
@@ -10,6 +11,7 @@ Token Scanner::scanToken() {
     if (isAtEnd()) return makeToken(TokenType::TOKEN_EOF);
 
     char c = advance();
+
 
     if (isalpha(c)) return identifier();
     if (isdigit(c)) return number();
