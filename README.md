@@ -1,78 +1,70 @@
-# Inter-CPP 🚀
+# inter-cpp
 
-Inter-CPP is a high-performance, bytecode-oriented interpreter for the Lox language, engineered from the ground up using **Modern C++17**. It bridges the gap between high-level language abstractions and low-level system performance, featuring a stack-based virtual machine, a sophisticated compiler, and a custom garbage collection system.
+A bytecode interpreter for the Lox language implemented in C++17. This project features a stack-based virtual machine, a custom garbage collector, and a recursive-descent parser.
 
-## 🏗️ Architecture Overview
+## Architecture
 
-The system follows a classic compiler-interpreter pipeline, optimized for memory efficiency and execution speed.
+The interpreter is divided into a front-end compiler that produces bytecode and a back-end virtual machine that executes it.
 
 ```mermaid
 graph TD
-    subgraph "Front-End (Compiler)"
-        Source[Source Code] -->|Lexical Analysis| Scanner[Scanner / Lexer]
-        Scanner -->|Tokens| Parser[Recursive Descent Parser]
-        Parser -->|Single Pass| Emitter[Bytecode Emitter]
+    subgraph Compiler
+        Source --> Scanner
+        Scanner --> Parser
+        Parser --> Bytecode
     end
 
-    subgraph "Back-End (Runtime)"
-        Emitter -->|OpCodes| Chunk[Bytecode Chunks]
-        Chunk -->|Execution| VM[Virtual Machine]
-        
-        subgraph "Memory & State"
-            VM <--> Stack[Value Stack]
-            VM <--> Globals[Global Symbol Table]
-            VM <--> GC[Mark-Sweep Garbage Collector]
-            GC --- Heap[Object Heap / Linked List]
-        end
+    subgraph Runtime
+        Bytecode --> VM
+        VM --> Stack
+        VM --> GC
+        VM --> Globals
     end
 ```
 
-## ✨ Core Features
+### Components
 
-*   **⚡ Optimized Bytecode VM**: A stack-based execution engine with zero-overhead instruction dispatch.
-*   **🛠️ Pratt Parser**: A powerful hand-written recursive descent parser for robust expression evaluation.
-*   **♻️ Mark-Sweep GC**: Automated memory management with a focus on low-latency object reclamation.
-*   **📦 Advanced OOP**: Complete support for classes, inheritance, method binding, and property access.
-*   **🔗 Closures & Upvalues**: Sophisticated scope capture using an open/closed upvalue system.
-*   **🔢 Native Integration**: Easy-to-use API for binding native C++ functions to Lox.
-*   **➗ Math Extensions**: Native support for standard arithmetic including the `%` modulo operator.
+*   **Virtual Machine**: A stack-based VM that executes custom OpCodes. It manages call frames for function execution and handles the value stack.
+*   **Compiler**: A single-pass compiler using a Pratt parser for expressions. It generates bytecode directly during parsing to avoid multiple passes.
+*   **Garbage Collector**: A mark-and-sweep GC that tracks all heap-allocated objects. It is integrated into the VM's allocation logic.
+*   **Object System**: Support for strings (with interning), closures, classes, and instances.
 
-## 🚀 Getting Started
+## Technical Details
 
-### Prerequisites
+*   **Modern C++**: Uses C++17 features like `std::variant` for the Value type and `std::string_view` where appropriate.
+*   **Memory Management**: Custom allocation for objects to facilitate garbage collection.
+*   **Performance**: Focused on efficient bytecode execution and reduced allocation overhead.
 
-*   **C++17** compatible compiler (GCC 7+, Clang 5+, or MSVC 2017+)
-*   **CMake** 3.10+
+## Building and Running
 
-### Build Instructions
+### Requirements
+*   CMake 3.10 or higher
+*   C++17 compliant compiler
 
+### Build
 ```bash
-mkdir -p build && cd build
+mkdir build
+cd build
 cmake ..
-make -j$(nproc)
+make
 ```
 
-### Usage
-
-**Run a script:**
+### Run
+To run a script:
 ```bash
-./intercpp path/to/script.lox
+./intercpp <file_path>
 ```
 
-**Interactive REPL:**
+To run the REPL:
 ```bash
 ./intercpp
 ```
 
-## 📜 Language Specification
-
-Inter-CPP supports the full Lox specification, including:
-- Variables (`var x = 10;`)
-- Control Flow (`if`, `else`, `while`, `for`)
-- Functions & Closures (`fun adder(n) { return fun(x) { return x + n; }; }`)
-- Classes & Inheritance (`class B < A { ... }`)
-- The newly added `%` modulo operator for numeric calculations.
-
----
-
-*Built with passion for systems programming.*
+## Features Supported
+- Basic arithmetic and logic
+- Global and local variables
+- Control flow (if, while, for)
+- Functions and closures
+- Classes and inheritance
+- Native function binding (e.g. clock for timing)
+- Modulo operator (%)
