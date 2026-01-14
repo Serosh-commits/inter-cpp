@@ -3,7 +3,6 @@
 #include "../vm/object/string.hpp"
 #include "../vm/object/function.hpp"
 #include <cstring>
-#include <iostream>
 
 Parser::Parser(VM& v, const std::string& src) : vm(v), scanner(src) {
     advance();
@@ -12,7 +11,6 @@ Parser::Parser(VM& v, const std::string& src) : vm(v), scanner(src) {
 ObjFunction* Parser::compile() {
     compiling = vm.newFunction();
     locals.push_back({"", 0, true});
-    advance();
     while (!match(TokenType::TOKEN_EOF)) {
         declaration();
     }
@@ -148,11 +146,7 @@ void Parser::funDeclaration(const std::string& kind) {
     global = makeConstant(Value(vm.allocateString(name)));
 
     ObjFunction* function = vm.newFunction();
-    // function->name = vm.allocateString(name); // Assuming separate logic or newFunction handles
-    
-    // ... Function body compilation ...
-    // This requires implementing function compilation logic (compiler/function stack).
-    // For brevity, skipping full implementation but ensuring methods exist.
+    // function->name = vm.allocateString(name);
     
     consume(TokenType::LEFT_PAREN, ("Expect '(' after " + kind + " name.").c_str());
     consume(TokenType::RIGHT_PAREN, "Expect ')' after parameters.");
