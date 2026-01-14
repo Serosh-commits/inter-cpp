@@ -38,7 +38,7 @@ private:
     void block();
 
     enum class Precedence {
-        NONE, ASSIGNMENT, OR, AND, EQUALITY, COMPARISON,
+        NONE, ASSIGNMENT, TERNARY, OR, AND, EQUALITY, COMPARISON,
         TERM, FACTOR, UNARY, CALL, PRIMARY
     };
 
@@ -54,6 +54,7 @@ private:
     void grouping(bool canAssign);
     void unary(bool canAssign);
     void binary(bool canAssign);
+    void ternary(bool canAssign);
     void number(bool canAssign);
     void literal(bool canAssign);
     void string(bool canAssign);

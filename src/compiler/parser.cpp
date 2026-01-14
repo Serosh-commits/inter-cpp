@@ -363,6 +363,8 @@ Parser::ParseRule* Parser::getRule(TokenType type) {
         {nullptr, nullptr, Precedence::NONE},
         {nullptr, nullptr, Precedence::NONE},
         {nullptr, nullptr, Precedence::NONE},
+        {nullptr, &Parser::ternary, Precedence::TERNARY},
+        {nullptr, nullptr, Precedence::NONE},
     };
     return &rules[static_cast<int>(type)];
 }
@@ -401,6 +403,23 @@ void Parser::binary(bool canAssign) {
         case TokenType::PERCENT:       emitByte(static_cast<uint8_t>(OpCode::MODULO)); break;
         default: return;
     }
+}
+
+void Parser::ternary(bool canAssign) {
+    int thenJump = emitJump(static_cast<uint8_t>(OpCode::JUMP_IF_FALSE));
+    emitByte(static_cast<uint8_t>(OpCode::POP));
+    parsePrecedence(Precedence::TERNARY);
+
+    consume(TokenType::COLON, "Expect ':' after '?' branch.");
+
+    int elseJump = emitJump(static_cast<uint8_t>(OpCode::JUMP));
+
+    patchJump(thenJump);
+    emitByte(static_cast<uint8_t>(OpCode::POP));
+
+    parsePrecedence(Precedence::TERNARY);
+
+    patchJump(elseJump);
 }
 
 void Parser::number(bool canAssign) {
