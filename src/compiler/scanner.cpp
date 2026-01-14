@@ -98,7 +98,7 @@ Token Scanner::string() {
 
     if (isAtEnd()) return errorToken("Unterminated string.");
 
-    advance(); // The closing ".
+    advance();
     return makeToken(TokenType::STRING);
 }
 
@@ -106,7 +106,7 @@ Token Scanner::number() {
     while (isdigit(peek())) advance();
 
     if (peek() == '.' && isdigit(peekNext())) {
-        advance(); // Consume the "."
+        advance();
         while (isdigit(peek())) advance();
     }
 

@@ -108,19 +108,19 @@ void Parser::classDeclaration() {
     emitBytes(static_cast<uint8_t>(OpCode::CLASS), nameConstant);
 
     defineMethod(vm.allocateString(std::string(className.start, className.length)));
-    
+
     ClassCompiler classCompiler;
     classCompiler.enclosing = this->classCompiler;
     this->classCompiler = &classCompiler;
 
     if (match(TokenType::LESS)) {
         consume(TokenType::IDENTIFIER, "Expect superclass name.");
-        // variable(false);
+
         if (className.length == previous.length && memcmp(className.start, previous.start, className.length) == 0) {
             error("A class cannot inherit from itself.");
         }
         beginScope();
-        // addLocal(syntheticToken("super"));
+
         emitBytes(static_cast<uint8_t>(OpCode::GET_GLOBAL), makeConstant(Value(vm.allocateString(std::string(previous.start, previous.length)))));
         this->classCompiler->hasSuperclass = true;
     }
@@ -139,21 +139,21 @@ void Parser::classDeclaration() {
 }
 
 void Parser::funDeclaration(const std::string& kind) {
-    uint8_t global = 0; // simplified
+    uint8_t global = 0;
     consume(TokenType::IDENTIFIER, ("Expect " + kind + " name.").c_str());
-    
+
     std::string name(previous.start, previous.length);
     global = makeConstant(Value(vm.allocateString(name)));
 
     ObjFunction* function = vm.newFunction();
-    // function->name = vm.allocateString(name);
-    
+
+
     consume(TokenType::LEFT_PAREN, ("Expect '(' after " + kind + " name.").c_str());
     consume(TokenType::RIGHT_PAREN, "Expect ')' after parameters.");
     consume(TokenType::LEFT_BRACE, ("Expect '{' before " + kind + " body.").c_str());
     block();
 
-    // emitBytes(static_cast<uint8_t>(OpCode::CLOSURE), global);
+
 }
 
 void Parser::varDeclaration() {
@@ -167,7 +167,7 @@ void Parser::varDeclaration() {
     }
     consume(TokenType::SEMICOLON, "Expect ';' after variable declaration.");
 
-    // defineVariable(global);
+
 }
 
 void Parser::statement() {
@@ -238,7 +238,7 @@ void Parser::forStatement() {
     beginScope();
     consume(TokenType::LEFT_PAREN, "Expect '(' after 'for'.");
     if (match(TokenType::SEMICOLON)) {
-        // No initializer.
+
     } else if (match(TokenType::VAR)) {
         varDeclaration();
     } else {
@@ -322,46 +322,46 @@ void Parser::parsePrecedence(Precedence precedence) {
 
 Parser::ParseRule* Parser::getRule(TokenType type) {
     static ParseRule rules[] = {
-        {&Parser::grouping, &Parser::call, Precedence::CALL},       // LEFT_PAREN (0)
-        {nullptr, nullptr, Precedence::NONE},       // RIGHT_PAREN (1)
-        {nullptr, nullptr, Precedence::NONE},       // LEFT_BRACE (2)
-        {nullptr, nullptr, Precedence::NONE},       // RIGHT_BRACE (3)
-        {nullptr, nullptr, Precedence::NONE},       // COMMA (4)
-        {nullptr, &Parser::dot, Precedence::CALL},       // DOT (5)
-        {&Parser::unary, &Parser::binary, Precedence::TERM},       // MINUS (6)
-        {nullptr, &Parser::binary, Precedence::TERM},       // PLUS (7)
-        {nullptr, nullptr, Precedence::NONE},       // SEMICOLON (8)
-        {nullptr, &Parser::binary, Precedence::FACTOR},       // SLASH (9)
-        {nullptr, &Parser::binary, Precedence::FACTOR},       // STAR (10)
-        {&Parser::unary, nullptr, Precedence::NONE},       // BANG (11)
-        {nullptr, &Parser::binary, Precedence::EQUALITY},       // BANG_EQUAL (12)
-        {nullptr, nullptr, Precedence::NONE},       // EQUAL (13)
-        {nullptr, &Parser::binary, Precedence::EQUALITY},       // EQUAL_EQUAL (14)
-        {nullptr, &Parser::binary, Precedence::COMPARISON},       // GREATER (15)
-        {nullptr, &Parser::binary, Precedence::COMPARISON},       // GREATER_EQUAL (16)
-        {nullptr, &Parser::binary, Precedence::COMPARISON},       // LESS (17)
-        {nullptr, &Parser::binary, Precedence::COMPARISON},       // LESS_EQUAL (18)
-        {&Parser::variable, nullptr, Precedence::NONE},       // IDENTIFIER (19)
-        {&Parser::string, nullptr, Precedence::NONE},       // STRING (20)
-        {&Parser::number, nullptr, Precedence::NONE},       // NUMBER (21)
-        {nullptr, &Parser::and_, Precedence::AND},       // AND (22)
-        {nullptr, nullptr, Precedence::NONE},       // CLASS (23)
-        {nullptr, nullptr, Precedence::NONE},       // ELSE (24)
-        {&Parser::literal, nullptr, Precedence::NONE},       // FALSE (25)
-        {nullptr, nullptr, Precedence::NONE},       // FUN (26)
-        {nullptr, nullptr, Precedence::NONE},       // FOR (27)
-        {nullptr, nullptr, Precedence::NONE},       // IF (28)
-        {&Parser::literal, nullptr, Precedence::NONE},       // NIL (29)
-        {nullptr, &Parser::or_, Precedence::OR},       // OR (30)
-        {nullptr, nullptr, Precedence::NONE},       // PRINT (31)
-        {nullptr, nullptr, Precedence::NONE},       // RETURN (32)
-        {&Parser::super_, nullptr, Precedence::NONE},       // SUPER (33)
-        {&Parser::this_, nullptr, Precedence::NONE},       // THIS (34)
-        {&Parser::literal, nullptr, Precedence::NONE},       // TRUE (35)
-        {nullptr, nullptr, Precedence::NONE},       // VAR (36)
-        {nullptr, nullptr, Precedence::NONE},       // WHILE (37)
-        {nullptr, nullptr, Precedence::NONE},       // ERROR (38)
-        {nullptr, nullptr, Precedence::NONE},       // TOKEN_EOF (39)
+        {&Parser::grouping, &Parser::call, Precedence::CALL},
+        {nullptr, nullptr, Precedence::NONE},
+        {nullptr, nullptr, Precedence::NONE},
+        {nullptr, nullptr, Precedence::NONE},
+        {nullptr, nullptr, Precedence::NONE},
+        {nullptr, &Parser::dot, Precedence::CALL},
+        {&Parser::unary, &Parser::binary, Precedence::TERM},
+        {nullptr, &Parser::binary, Precedence::TERM},
+        {nullptr, nullptr, Precedence::NONE},
+        {nullptr, &Parser::binary, Precedence::FACTOR},
+        {nullptr, &Parser::binary, Precedence::FACTOR},
+        {&Parser::unary, nullptr, Precedence::NONE},
+        {nullptr, &Parser::binary, Precedence::EQUALITY},
+        {nullptr, nullptr, Precedence::NONE},
+        {nullptr, &Parser::binary, Precedence::EQUALITY},
+        {nullptr, &Parser::binary, Precedence::COMPARISON},
+        {nullptr, &Parser::binary, Precedence::COMPARISON},
+        {nullptr, &Parser::binary, Precedence::COMPARISON},
+        {nullptr, &Parser::binary, Precedence::COMPARISON},
+        {&Parser::variable, nullptr, Precedence::NONE},
+        {&Parser::string, nullptr, Precedence::NONE},
+        {&Parser::number, nullptr, Precedence::NONE},
+        {nullptr, &Parser::and_, Precedence::AND},
+        {nullptr, nullptr, Precedence::NONE},
+        {nullptr, nullptr, Precedence::NONE},
+        {&Parser::literal, nullptr, Precedence::NONE},
+        {nullptr, nullptr, Precedence::NONE},
+        {nullptr, nullptr, Precedence::NONE},
+        {nullptr, nullptr, Precedence::NONE},
+        {&Parser::literal, nullptr, Precedence::NONE},
+        {nullptr, &Parser::or_, Precedence::OR},
+        {nullptr, nullptr, Precedence::NONE},
+        {nullptr, nullptr, Precedence::NONE},
+        {&Parser::super_, nullptr, Precedence::NONE},
+        {&Parser::this_, nullptr, Precedence::NONE},
+        {&Parser::literal, nullptr, Precedence::NONE},
+        {nullptr, nullptr, Precedence::NONE},
+        {nullptr, nullptr, Precedence::NONE},
+        {nullptr, nullptr, Precedence::NONE},
+        {nullptr, nullptr, Precedence::NONE},
     };
     return &rules[static_cast<int>(type)];
 }
@@ -377,7 +377,7 @@ void Parser::unary(bool canAssign) {
     switch (operatorType) {
         case TokenType::MINUS: emitByte(static_cast<uint8_t>(OpCode::NEGATE)); break;
         case TokenType::BANG:  emitByte(static_cast<uint8_t>(OpCode::NOT)); break;
-        default: return; 
+        default: return;
     }
 }
 
@@ -424,8 +424,8 @@ void Parser::variable(bool canAssign) {
 }
 
 void Parser::namedVariable(const Token& name, bool canAssign) {
-    // simplified
-    uint8_t arg = 0; 
+
+    uint8_t arg = 0;
     int local = resolveLocal(std::string(name.start, name.length));
     OpCode getOp, setOp;
     if (local != -1) {
@@ -484,11 +484,11 @@ void Parser::dot(bool canAssign) {
 }
 
 void Parser::this_(bool canAssign) {
-    // simplified
+
 }
 
 void Parser::super_(bool canAssign) {
-    // simplified
+
 }
 
 int Parser::resolveLocal(const std::string& name) {
