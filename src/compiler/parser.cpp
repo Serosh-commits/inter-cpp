@@ -332,36 +332,38 @@ Parser::ParseRule* Parser::getRule(TokenType type) {
         {nullptr, &Parser::binary, Precedence::TERM},       // PLUS
         {nullptr, &Parser::binary, Precedence::FACTOR},       // SLASH
         {nullptr, &Parser::binary, Precedence::FACTOR},       // STAR
-        {nullptr, nullptr, Precedence::NONE},       // SEMICOLON
-        {&Parser::unary, nullptr, Precedence::NONE},       // BANG
-        {nullptr, &Parser::binary, Precedence::EQUALITY},       // BANG_EQUAL
-        {nullptr, nullptr, Precedence::NONE},       // EQUAL
-        {nullptr, &Parser::binary, Precedence::EQUALITY},       // EQUAL_EQUAL
-        {nullptr, &Parser::binary, Precedence::COMPARISON},       // GREATER
-        {nullptr, &Parser::binary, Precedence::COMPARISON},       // GREATER_EQUAL
-        {nullptr, &Parser::binary, Precedence::COMPARISON},       // LESS
-        {nullptr, &Parser::binary, Precedence::COMPARISON},       // LESS_EQUAL
-        {&Parser::variable, nullptr, Precedence::NONE},       // IDENTIFIER
-        {&Parser::string, nullptr, Precedence::NONE},       // STRING
-        {&Parser::number, nullptr, Precedence::NONE},       // NUMBER
-        {nullptr, &Parser::and_, Precedence::AND},       // AND
-        {nullptr, nullptr, Precedence::NONE},       // CLASS
-        {nullptr, nullptr, Precedence::NONE},       // ELSE
-        {&Parser::literal, nullptr, Precedence::NONE},       // FALSE
-        {nullptr, nullptr, Precedence::NONE},       // FUN
-        {nullptr, nullptr, Precedence::NONE},       // FOR
-        {nullptr, nullptr, Precedence::NONE},       // IF
-        {&Parser::literal, nullptr, Precedence::NONE},       // NIL
-        {nullptr, &Parser::or_, Precedence::OR},       // OR
-        {nullptr, nullptr, Precedence::NONE},       // PRINT
-        {nullptr, nullptr, Precedence::NONE},       // RETURN
-        {&Parser::super_, nullptr, Precedence::NONE},       // SUPER
-        {&Parser::this_, nullptr, Precedence::NONE},       // THIS
-        {&Parser::literal, nullptr, Precedence::NONE},       // TRUE
-        {nullptr, nullptr, Precedence::NONE},       // VAR
-        {nullptr, nullptr, Precedence::NONE},       // WHILE
-        {nullptr, nullptr, Precedence::NONE},       // ERROR
-        {nullptr, nullptr, Precedence::NONE},       // TOKEN_EOF
+        {nullptr, nullptr, Precedence::NONE},       // SEMICOLON (8)
+        {nullptr, &Parser::binary, Precedence::FACTOR},       // SLASH (9)
+        {nullptr, &Parser::binary, Precedence::FACTOR},       // STAR (10)
+        {&Parser::unary, nullptr, Precedence::NONE},       // BANG (11)
+        {nullptr, &Parser::binary, Precedence::EQUALITY},       // BANG_EQUAL (12)
+        {nullptr, nullptr, Precedence::NONE},       // EQUAL (13)
+        {nullptr, &Parser::binary, Precedence::EQUALITY},       // EQUAL_EQUAL (14)
+        {nullptr, &Parser::binary, Precedence::COMPARISON},       // GREATER (15)
+        {nullptr, &Parser::binary, Precedence::COMPARISON},       // GREATER_EQUAL (16)
+        {nullptr, &Parser::binary, Precedence::COMPARISON},       // LESS (17)
+        {nullptr, &Parser::binary, Precedence::COMPARISON},       // LESS_EQUAL (18)
+        {&Parser::variable, nullptr, Precedence::NONE},       // IDENTIFIER (19)
+        {&Parser::string, nullptr, Precedence::NONE},       // STRING (20)
+        {&Parser::number, nullptr, Precedence::NONE},       // NUMBER (21)
+        {nullptr, &Parser::and_, Precedence::AND},       // AND (22)
+        {nullptr, nullptr, Precedence::NONE},       // CLASS (23)
+        {nullptr, nullptr, Precedence::NONE},       // ELSE (24)
+        {&Parser::literal, nullptr, Precedence::NONE},       // FALSE (25)
+        {nullptr, nullptr, Precedence::NONE},       // FUN (26)
+        {nullptr, nullptr, Precedence::NONE},       // FOR (27)
+        {nullptr, nullptr, Precedence::NONE},       // IF (28)
+        {&Parser::literal, nullptr, Precedence::NONE},       // NIL (29)
+        {nullptr, &Parser::or_, Precedence::OR},       // OR (30)
+        {nullptr, nullptr, Precedence::NONE},       // PRINT (31)
+        {nullptr, nullptr, Precedence::NONE},       // RETURN (32)
+        {&Parser::super_, nullptr, Precedence::NONE},       // SUPER (33)
+        {&Parser::this_, nullptr, Precedence::NONE},       // THIS (34)
+        {&Parser::literal, nullptr, Precedence::NONE},       // TRUE (35)
+        {nullptr, nullptr, Precedence::NONE},       // VAR (36)
+        {nullptr, nullptr, Precedence::NONE},       // WHILE (37)
+        {nullptr, nullptr, Precedence::NONE},       // ERROR (38)
+        {nullptr, nullptr, Precedence::NONE},       // TOKEN_EOF (39)
     };
     return &rules[static_cast<int>(type)];
 }
