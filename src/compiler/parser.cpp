@@ -333,6 +333,7 @@ Parser::ParseRule* Parser::getRule(TokenType type) {
         {nullptr, nullptr, Precedence::NONE},
         {nullptr, &Parser::binary, Precedence::FACTOR},
         {nullptr, &Parser::binary, Precedence::FACTOR},
+        {nullptr, &Parser::binary, Precedence::FACTOR},
         {&Parser::unary, nullptr, Precedence::NONE},
         {nullptr, &Parser::binary, Precedence::EQUALITY},
         {nullptr, nullptr, Precedence::NONE},
@@ -397,6 +398,7 @@ void Parser::binary(bool canAssign) {
         case TokenType::MINUS:         emitByte(static_cast<uint8_t>(OpCode::SUBTRACT)); break;
         case TokenType::STAR:          emitByte(static_cast<uint8_t>(OpCode::MULTIPLY)); break;
         case TokenType::SLASH:         emitByte(static_cast<uint8_t>(OpCode::DIVIDE)); break;
+        case TokenType::PERCENT:       emitByte(static_cast<uint8_t>(OpCode::MODULO)); break;
         default: return;
     }
 }

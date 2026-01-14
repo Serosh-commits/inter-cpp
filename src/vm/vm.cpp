@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstdarg>
 #include <chrono>
+#include <cmath>
 
 VM::VM() {
     defineNative("clock", 0, clockNative);
@@ -110,6 +111,16 @@ bool VM::run() {
             case OpCode::SUBTRACT: BINARY_OP(-); break;
             case OpCode::MULTIPLY: BINARY_OP(*); break;
             case OpCode::DIVIDE:   BINARY_OP(/); break;
+            case OpCode::MODULO: {
+                if (!std::holds_alternative<double>(peek(0)) || !std::holds_alternative<double>(peek(1))) {
+                    runtimeError("Operands must be numbers.");
+                    return false;
+                }
+                double b = std::get<double>(pop());
+                double a = std::get<double>(pop());
+                push(Value(fmod(a, b)));
+                break;
+            }
             case OpCode::NOT:
                 push(Value(isFalsey(pop())));
                 break;
