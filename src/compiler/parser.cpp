@@ -326,6 +326,7 @@ Parser::ParseRule* Parser::getRule(TokenType type) {
         {nullptr, nullptr, Precedence::NONE},
         {nullptr, nullptr, Precedence::NONE},
         {nullptr, nullptr, Precedence::NONE},
+        {&Parser::list, &Parser::subscript, Precedence::CALL},
         {nullptr, nullptr, Precedence::NONE},
         {nullptr, &Parser::dot, Precedence::CALL},
         {&Parser::unary, &Parser::binary, Precedence::TERM},
@@ -522,6 +523,32 @@ void Parser::this_(bool canAssign) {
 
 void Parser::super_(bool canAssign) {
 
+}
+
+void Parser::list(bool canAssign) {
+    int count = 0;
+    if (!check(TokenType::RIGHT_BRACKET)) {
+        do {
+            if (count == 255) {
+                error("Can't have more than 255 elements in a list literal.");
+            }
+            expression();
+            count++;
+        } while (match(TokenType::COMMA));
+    }
+    consume(TokenType::RIGHT_BRACKET, "Expect ']' after list elements.");
+    emitBytes(static_cast<uint8_t>(OpCode::BUILD_LIST), static_cast<uint8_t>(count));
+}
+
+void Parser::subscript(bool canAssign) {
+    expression();
+    consume(TokenType::RIGHT_BRACKET, "Expect ']' after index.");
+    if (canAssign && match(TokenType::EQUAL)) {
+        expression();
+        emitByte(static_cast<uint8_t>(OpCode::SET_SUBSCRIPT));
+    } else {
+        emitByte(static_cast<uint8_t>(OpCode::GET_SUBSCRIPT));
+    }
 }
 
 int Parser::resolveLocal(const std::string& name) {
