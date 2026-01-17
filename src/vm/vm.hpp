@@ -46,6 +46,7 @@ public:
     ObjInstance* newInstance(ObjClass* klass);
     ObjBoundMethod* newBoundMethod(Value receiver, ObjClosure* method);
     ObjNative* newNative(NativeFn function, int arity);
+    ObjList* newList();
 
     void push(Value value) { *stackTop++ = value; }
     Value pop() { return *--stackTop; }
