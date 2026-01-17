@@ -21,6 +21,8 @@ Token Scanner::scanToken() {
         case ')': return makeToken(TokenType::RIGHT_PAREN);
         case '{': return makeToken(TokenType::LEFT_BRACE);
         case '}': return makeToken(TokenType::RIGHT_BRACE);
+        case '[': return makeToken(TokenType::LEFT_BRACKET);
+        case ']': return makeToken(TokenType::RIGHT_BRACKET);
         case ';': return makeToken(TokenType::SEMICOLON);
         case ',': return makeToken(TokenType::COMMA);
         case '.': return makeToken(TokenType::DOT);
