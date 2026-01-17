@@ -10,10 +10,11 @@ class ObjClass;
 class ObjInstance;
 class ObjBoundMethod;
 class ObjNative;
+class ObjList;
 
 class Obj {
 public:
-    enum class Type { STRING, FUNCTION, CLOSURE, UPVALUE, CLASS, INSTANCE, BOUND_METHOD, NATIVE };
+    enum class Type { STRING, FUNCTION, CLOSURE, UPVALUE, CLASS, INSTANCE, BOUND_METHOD, NATIVE, LIST };
     Type type;
     bool marked = false;
     Obj* next = nullptr;
@@ -31,6 +32,7 @@ public:
 #define AS_INSTANCE(value)  (as<ObjInstance>(AS_OBJ(value)))
 #define AS_BOUND(value)     (as<ObjBoundMethod>(AS_OBJ(value)))
 #define AS_NATIVE(value)    (as<ObjNative>(AS_OBJ(value)))
+#define AS_LIST(value)      (as<ObjList>(AS_OBJ(value)))
 
 template<typename T>
 inline T* as(Obj* obj) { return dynamic_cast<T*>(obj); }
