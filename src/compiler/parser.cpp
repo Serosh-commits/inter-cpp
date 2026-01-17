@@ -160,6 +160,10 @@ void Parser::varDeclaration() {
     consume(TokenType::IDENTIFIER, "Expect variable name.");
     Token nameToken = previous;
 
+    if (scopeDepth > 0) {
+        locals.push_back({std::string(nameToken.start, nameToken.length), scopeDepth, false});
+    }
+
     if (match(TokenType::EQUAL)) {
         expression();
     } else {
@@ -167,7 +171,12 @@ void Parser::varDeclaration() {
     }
     consume(TokenType::SEMICOLON, "Expect ';' after variable declaration.");
 
-
+    if (scopeDepth > 0) {
+        locals.back().initialized = true;
+    } else {
+        uint8_t global = makeConstant(Value(vm.allocateString(std::string(nameToken.start, nameToken.length))));
+        emitBytes(static_cast<uint8_t>(OpCode::DEFINE_GLOBAL), global);
+    }
 }
 
 void Parser::statement() {
@@ -327,6 +336,7 @@ Parser::ParseRule* Parser::getRule(TokenType type) {
         {nullptr, nullptr, Precedence::NONE},
         {nullptr, nullptr, Precedence::NONE},
         {&Parser::list, &Parser::subscript, Precedence::CALL},
+        {nullptr, nullptr, Precedence::NONE},
         {nullptr, nullptr, Precedence::NONE},
         {nullptr, &Parser::dot, Precedence::CALL},
         {&Parser::unary, &Parser::binary, Precedence::TERM},
