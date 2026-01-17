@@ -75,6 +75,16 @@ bool VM::run() {
         double a = std::get<double>(pop()); \
         push(Value(a op b)); \
     } while (false)
+#define BITWISE_OP(op) \
+    do { \
+        if (!std::holds_alternative<double>(peek(0)) || !std::holds_alternative<double>(peek(1))) { \
+            runtimeError("Operands must be numbers."); \
+            return false; \
+        } \
+        int b = static_cast<int>(std::get<double>(pop())); \
+        int a = static_cast<int>(std::get<double>(pop())); \
+        push(Value(static_cast<double>(a op b))); \
+    } while (false)
 
     for (;;) {
         if (bytesAllocated > nextGC) {
@@ -121,6 +131,18 @@ bool VM::run() {
                 push(Value(fmod(a, b)));
                 break;
             }
+            case OpCode::BIT_AND: BITWISE_OP(&); break;
+            case OpCode::BIT_OR:  BITWISE_OP(|); break;
+            case OpCode::BIT_XOR: BITWISE_OP(^); break;
+            case OpCode::SHIFT_LEFT: BITWISE_OP(<<); break;
+            case OpCode::SHIFT_RIGHT: BITWISE_OP(>>); break;
+            case OpCode::BIT_NOT:
+                if (!std::holds_alternative<double>(peek(0))) {
+                    runtimeError("Operand must be a number.");
+                    return false;
+                }
+                push(Value(static_cast<double>(~static_cast<int>(std::get<double>(pop())))));
+                break;
             case OpCode::NOT:
                 push(Value(isFalsey(pop())));
                 break;
@@ -308,6 +330,7 @@ bool VM::run() {
 #undef READ_CONSTANT
 #undef READ_STRING
 #undef BINARY_OP
+#undef BITWISE_OP
 }
 
 void VM::defineNative(const std::string& name, int arity, Value (*fn)(VM&, const std::vector<Value>&)) {

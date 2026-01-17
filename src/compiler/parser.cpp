@@ -334,6 +334,12 @@ Parser::ParseRule* Parser::getRule(TokenType type) {
         {nullptr, &Parser::binary, Precedence::FACTOR},
         {nullptr, &Parser::binary, Precedence::FACTOR},
         {nullptr, &Parser::binary, Precedence::FACTOR},
+        {nullptr, &Parser::binary, Precedence::BIT_AND},
+        {nullptr, &Parser::binary, Precedence::BIT_OR},
+        {nullptr, &Parser::binary, Precedence::BIT_XOR},
+        {&Parser::unary, nullptr, Precedence::NONE},
+        {nullptr, &Parser::binary, Precedence::SHIFT},
+        {nullptr, &Parser::binary, Precedence::SHIFT},
         {&Parser::unary, nullptr, Precedence::NONE},
         {nullptr, &Parser::binary, Precedence::EQUALITY},
         {nullptr, nullptr, Precedence::NONE},
@@ -380,6 +386,7 @@ void Parser::unary(bool canAssign) {
     switch (operatorType) {
         case TokenType::MINUS: emitByte(static_cast<uint8_t>(OpCode::NEGATE)); break;
         case TokenType::BANG:  emitByte(static_cast<uint8_t>(OpCode::NOT)); break;
+        case TokenType::TILDE: emitByte(static_cast<uint8_t>(OpCode::BIT_NOT)); break;
         default: return;
     }
 }
@@ -401,6 +408,11 @@ void Parser::binary(bool canAssign) {
         case TokenType::STAR:          emitByte(static_cast<uint8_t>(OpCode::MULTIPLY)); break;
         case TokenType::SLASH:         emitByte(static_cast<uint8_t>(OpCode::DIVIDE)); break;
         case TokenType::PERCENT:       emitByte(static_cast<uint8_t>(OpCode::MODULO)); break;
+        case TokenType::AMPERSAND:     emitByte(static_cast<uint8_t>(OpCode::BIT_AND)); break;
+        case TokenType::PIPE:          emitByte(static_cast<uint8_t>(OpCode::BIT_OR)); break;
+        case TokenType::CARET:         emitByte(static_cast<uint8_t>(OpCode::BIT_XOR)); break;
+        case TokenType::LESS_LESS:     emitByte(static_cast<uint8_t>(OpCode::SHIFT_LEFT)); break;
+        case TokenType::GREATER_GREATER: emitByte(static_cast<uint8_t>(OpCode::SHIFT_RIGHT)); break;
         default: return;
     }
 }

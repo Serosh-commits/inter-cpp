@@ -38,7 +38,7 @@ private:
     void block();
 
     enum class Precedence {
-        NONE, ASSIGNMENT, TERNARY, OR, AND, EQUALITY, COMPARISON,
+        NONE, ASSIGNMENT, TERNARY, OR, AND, BIT_OR, BIT_XOR, BIT_AND, EQUALITY, COMPARISON, SHIFT,
         TERM, FACTOR, UNARY, CALL, PRIMARY
     };
 
