@@ -8,6 +8,7 @@
 #include "object/instance.hpp"
 #include "object/bound_method.hpp"
 #include "object/native.hpp"
+#include "object/list.hpp"
 #include "../compiler/parser.hpp"
 #include <cstdio>
 #include <cstdarg>
@@ -309,6 +310,58 @@ bool VM::run() {
                 if (!bindMethod(superclass, name->str)) return false;
                 break;
             }
+            case OpCode::BUILD_LIST: {
+                int count = READ_BYTE();
+                ObjList* list = newList();
+                list->elements.resize(count);
+                for (int i = count - 1; i >= 0; i--) {
+                    list->elements[i] = pop();
+                }
+                push(Value(static_cast<Obj*>(list)));
+                break;
+            }
+            case OpCode::GET_SUBSCRIPT: {
+                Value index = pop();
+                Value listVal = pop();
+                if (!isObjType(listVal, Obj::Type::LIST)) {
+                    runtimeError("Can only subscript lists.");
+                    return false;
+                }
+                if (!std::holds_alternative<double>(index)) {
+                    runtimeError("Index must be a number.");
+                    return false;
+                }
+                ObjList* list = AS_LIST(listVal);
+                int i = static_cast<int>(std::get<double>(index));
+                if (i < 0 || i >= static_cast<int>(list->elements.size())) {
+                    runtimeError("Index out of bounds.");
+                    return false;
+                }
+                push(list->elements[i]);
+                break;
+            }
+            case OpCode::SET_SUBSCRIPT: {
+                Value value = pop();
+                Value index = pop();
+                Value listVal = pop();
+                if (!isObjType(listVal, Obj::Type::LIST)) {
+                    runtimeError("Can only subscript lists.");
+                    return false;
+                }
+                if (!std::holds_alternative<double>(index)) {
+                    runtimeError("Index must be a number.");
+                    return false;
+                }
+                ObjList* list = AS_LIST(listVal);
+                int i = static_cast<int>(std::get<double>(index));
+                if (i < 0 || i >= static_cast<int>(list->elements.size())) {
+                    runtimeError("Index out of bounds.");
+                    return false;
+                }
+                list->elements[i] = value;
+                push(value);
+                break;
+            }
             case OpCode::RETURN: {
                 Value result = pop();
                 closeUpvalues(frame->slots);
@@ -406,6 +459,14 @@ ObjNative* VM::newNative(NativeFn function, int arity) {
     return native;
 }
 
+ObjList* VM::newList() {
+    ObjList* list = new ObjList();
+    list->next = objects;
+    objects = list;
+    bytesAllocated += sizeof(ObjList);
+    return list;
+}
+
 void VM::markRoots() {
     for (Value* slot = stack.data(); slot < stackTop; ++slot) {
         markValue(*slot);
@@ -475,6 +536,13 @@ void VM::blackenObject(Obj* object) {
         case Obj::Type::NATIVE:
         case Obj::Type::STRING:
             break;
+        case Obj::Type::LIST: {
+            ObjList* list = reinterpret_cast<ObjList*>(object);
+            for (Value& val : list->elements) {
+                markValue(val);
+            }
+            break;
+        }
     }
 }
 
@@ -521,6 +589,7 @@ void VM::freeObject(Obj* object) {
         case Obj::Type::INSTANCE: delete static_cast<ObjInstance*>(object); break;
         case Obj::Type::BOUND_METHOD: delete static_cast<ObjBoundMethod*>(object); break;
         case Obj::Type::NATIVE: delete static_cast<ObjNative*>(object); break;
+        case Obj::Type::LIST: delete static_cast<ObjList*>(object); break;
     }
 }
 
@@ -689,6 +758,16 @@ std::string valueToString(const Value& value) {
         if (obj->type == Obj::Type::INSTANCE) return AS_INSTANCE(value)->klass->name->str + " instance";
         if (obj->type == Obj::Type::BOUND_METHOD) return "<bound method>";
         if (obj->type == Obj::Type::NATIVE) return "<native fn>";
+        if (obj->type == Obj::Type::LIST) {
+            ObjList* list = AS_LIST(value);
+            std::string result = "[";
+            for (size_t i = 0; i < list->elements.size(); i++) {
+                if (i > 0) result += ", ";
+                result += valueToString(list->elements[i]);
+            }
+            result += "]";
+            return result;
+        }
     }
     return "<object>";
 }
