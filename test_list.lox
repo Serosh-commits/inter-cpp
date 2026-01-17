@@ -1,0 +1,7 @@
+var list = [1, 2, 3, 4, 5];
+print list;
+print list[0];
+print list[4];
+list[2] = 99;
+print list;
+print list[2];
