@@ -66,6 +66,8 @@ private:
     void dot(bool canAssign);
     void this_(bool canAssign);
     void super_(bool canAssign);
+    void list(bool canAssign);
+    void subscript(bool canAssign);
 
     void emitConstant(Value value);
     void beginScope();
