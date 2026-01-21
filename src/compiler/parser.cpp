@@ -344,6 +344,7 @@ Parser::ParseRule* Parser::getRule(TokenType type) {
         {nullptr, nullptr, Precedence::NONE},
         {nullptr, &Parser::binary, Precedence::FACTOR},
         {nullptr, &Parser::binary, Precedence::FACTOR},
+        {nullptr, &Parser::pow, Precedence::INDICES},
         {nullptr, &Parser::binary, Precedence::FACTOR},
         {nullptr, &Parser::binary, Precedence::BIT_AND},
         {nullptr, &Parser::binary, Precedence::BIT_OR},
@@ -443,6 +444,11 @@ void Parser::ternary(bool canAssign) {
     parsePrecedence(Precedence::TERNARY);
 
     patchJump(elseJump);
+}
+
+void Parser::pow(bool canAssign) {
+    parsePrecedence(Precedence::INDICES);
+    emitByte(static_cast<uint8_t>(OpCode::POW));
 }
 
 void Parser::number(bool canAssign) {
