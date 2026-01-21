@@ -89,6 +89,17 @@ void Scanner::skipWhitespace() {
             case '/':
                 if (peekNext() == '/') {
                     while (peek() != '\n' && !isAtEnd()) advance();
+                } else if (peekNext() == '*') {
+                    advance(); 
+                    advance(); 
+                    while (!(peek() == '*' && peekNext() == '/') && !isAtEnd()) {
+                        if (peek() == '\n') line++;
+                        advance();
+                    }
+                    if (!isAtEnd()) {
+                        advance(); 
+                        advance(); 
+                    }
                 } else {
                     return;
                 }
