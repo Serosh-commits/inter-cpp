@@ -39,7 +39,7 @@ private:
 
     enum class Precedence {
         NONE, ASSIGNMENT, TERNARY, OR, AND, BIT_OR, BIT_XOR, BIT_AND, EQUALITY, COMPARISON, SHIFT,
-        TERM, FACTOR, UNARY, CALL, PRIMARY
+        TERM, FACTOR, INDICES, UNARY, CALL, PRIMARY
     };
 
     using ParseFn = void (Parser::*)(bool canAssign);
@@ -55,6 +55,7 @@ private:
     void unary(bool canAssign);
     void binary(bool canAssign);
     void ternary(bool canAssign);
+    void pow(bool canAssign);
     void number(bool canAssign);
     void literal(bool canAssign);
     void string(bool canAssign);
