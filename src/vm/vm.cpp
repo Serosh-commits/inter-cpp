@@ -132,6 +132,16 @@ bool VM::run() {
                 push(Value(fmod(a, b)));
                 break;
             }
+            case OpCode::POW: {
+                if (!std::holds_alternative<double>(peek(0)) || !std::holds_alternative<double>(peek(1))) {
+                    runtimeError("Operands must be numbers.");
+                    return false;
+                }
+                double b = std::get<double>(pop());
+                double a = std::get<double>(pop());
+                push(Value(pow(a, b)));
+                break;
+            }
             case OpCode::BIT_AND: BITWISE_OP(&); break;
             case OpCode::BIT_OR:  BITWISE_OP(|); break;
             case OpCode::BIT_XOR: BITWISE_OP(^); break;
