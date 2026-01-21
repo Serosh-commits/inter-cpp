@@ -77,4 +77,5 @@ private:
     void freeObjects();
 
     static Value clockNative(VM&, const std::vector<Value>&);
+    static Value inputNative(VM&, const std::vector<Value>&);
 };
