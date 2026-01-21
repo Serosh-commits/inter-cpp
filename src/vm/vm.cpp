@@ -17,6 +17,7 @@
 
 VM::VM() {
     defineNative("clock", 0, clockNative);
+    defineNative("input", 1, inputNative);
 }
 
 VM::~VM() {
@@ -403,6 +404,15 @@ void VM::defineNative(const std::string& name, int arity, Value (*fn)(VM&, const
 Value VM::clockNative(VM&, const std::vector<Value>&) {
     auto now = std::chrono::system_clock::now().time_since_epoch();
     return Value(std::chrono::duration<double>(now).count());
+}
+
+Value VM::inputNative(VM& vm, const std::vector<Value>& args) {
+    if (args.size() > 0) {
+        std::cout << vm.valueToString(args[0]);
+    }
+    std::string line;
+    std::getline(std::cin, line);
+    return Value(vm.allocateString(line));
 }
 
 ObjString* VM::allocateString(std::string s) {
