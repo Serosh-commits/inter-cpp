@@ -18,6 +18,8 @@
 VM::VM() {
     defineNative("clock", 0, clockNative);
     defineNative("input", 1, inputNative);
+    defineNative("len", 1, lenNative);
+    defineNative("append", 2, appendNative);
 }
 
 VM::~VM() {
@@ -373,6 +375,27 @@ bool VM::run() {
                 push(value);
                 break;
             }
+            case OpCode::TYPEOF: {
+                Value val = pop();
+                if (std::holds_alternative<double>(val)) push(Value(allocateString("number")));
+                else if (std::holds_alternative<bool>(val)) push(Value(allocateString("boolean")));
+                else if (std::holds_alternative<std::nullptr_t>(val)) push(Value(allocateString("nil")));
+                else if (std::holds_alternative<Obj*>(val)) {
+                    Obj* obj = std::get<Obj*>(val);
+                    switch (obj->type) {
+                        case Obj::Type::STRING: push(Value(allocateString("string"))); break;
+                        case Obj::Type::FUNCTION:
+                        case Obj::Type::CLOSURE:
+                        case Obj::Type::NATIVE:
+                        case Obj::Type::BOUND_METHOD: push(Value(allocateString("function"))); break;
+                        case Obj::Type::CLASS: push(Value(allocateString("class"))); break;
+                        case Obj::Type::INSTANCE: push(Value(allocateString("instance"))); break;
+                        case Obj::Type::LIST: push(Value(allocateString("list"))); break;
+                        default: push(Value(allocateString("object"))); break;
+                    }
+                }
+                break;
+            }
             case OpCode::RETURN: {
                 Value result = pop();
                 closeUpvalues(frame->slots);
@@ -408,11 +431,33 @@ Value VM::clockNative(VM&, const std::vector<Value>&) {
 
 Value VM::inputNative(VM& vm, const std::vector<Value>& args) {
     if (args.size() > 0) {
-        std::cout << vm.valueToString(args[0]);
+        std::cout << valueToString(args[0]);
     }
     std::string line;
     std::getline(std::cin, line);
     return Value(vm.allocateString(line));
+}
+
+Value VM::lenNative(VM& vm, const std::vector<Value>& args) {
+    if (args.empty()) return Value(0.0);
+    Value val = args[0];
+    if (std::holds_alternative<Obj*>(val)) {
+        Obj* obj = std::get<Obj*>(val);
+        if (obj->type == Obj::Type::STRING) return Value((double)AS_STRING(val)->str.length());
+        if (obj->type == Obj::Type::LIST) return Value((double)AS_LIST(val)->elements.size());
+    }
+    return Value(0.0);
+}
+
+Value VM::appendNative(VM& vm, const std::vector<Value>& args) {
+    if (args.size() < 2) return Value(nullptr);
+    if (!isObjType(args[0], Obj::Type::LIST)) {
+        vm.runtimeError("First argument to append must be a list.");
+        return Value(nullptr);
+    }
+    ObjList* list = AS_LIST(args[0]);
+    list->elements.push_back(args[1]);
+    return args[1];
 }
 
 ObjString* VM::allocateString(std::string s) {
