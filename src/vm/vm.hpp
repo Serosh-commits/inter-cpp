@@ -78,4 +78,6 @@ private:
 
     static Value clockNative(VM&, const std::vector<Value>&);
     static Value inputNative(VM&, const std::vector<Value>&);
+    static Value lenNative(VM&, const std::vector<Value>&);
+    static Value appendNative(VM&, const std::vector<Value>&);
 };
