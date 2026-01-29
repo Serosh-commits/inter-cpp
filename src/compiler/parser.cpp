@@ -188,6 +188,8 @@ void Parser::statement() {
         ifStatement();
     } else if (match(TokenType::RETURN)) {
         returnStatement();
+    } else if (match(TokenType::BREAK)) {
+        breakStatement();
     } else if (match(TokenType::WHILE)) {
         whileStatement();
     } else if (match(TokenType::LEFT_BRACE)) {
@@ -234,6 +236,9 @@ void Parser::whileStatement() {
     expression();
     consume(TokenType::RIGHT_PAREN, "Expect ')' after condition.");
 
+    Loop loop = {loopStart, scopeDepth, {}, currentLoop};
+    currentLoop = &loop;
+
     int exitJump = emitJump(static_cast<uint8_t>(OpCode::JUMP_IF_FALSE));
     emitByte(static_cast<uint8_t>(OpCode::POP));
     statement();
@@ -241,6 +246,11 @@ void Parser::whileStatement() {
 
     patchJump(exitJump);
     emitByte(static_cast<uint8_t>(OpCode::POP));
+
+    for (int jump : loop.exitJumps) {
+        patchJump(jump);
+    }
+    currentLoop = loop.enclosing;
 }
 
 void Parser::forStatement() {
@@ -263,6 +273,9 @@ void Parser::forStatement() {
         emitByte(static_cast<uint8_t>(OpCode::POP));
     }
 
+    Loop loop = {loopStart, scopeDepth, {}, currentLoop};
+    currentLoop = &loop;
+
     if (!match(TokenType::RIGHT_PAREN)) {
         int bodyJump = emitJump(static_cast<uint8_t>(OpCode::JUMP));
         int incrementStart = currentChunk()->code.size();
@@ -273,6 +286,7 @@ void Parser::forStatement() {
         emitLoop(loopStart);
         loopStart = incrementStart;
         patchJump(bodyJump);
+        loop.start = loopStart; 
     }
 
     statement();
@@ -283,7 +297,26 @@ void Parser::forStatement() {
         emitByte(static_cast<uint8_t>(OpCode::POP));
     }
 
+    for (int jump : loop.exitJumps) {
+        patchJump(jump);
+    }
+    currentLoop = loop.enclosing;
+
     endScope();
+}
+
+void Parser::breakStatement() {
+    if (currentLoop == nullptr) {
+        error("Can't use 'break' outside of a loop.");
+    }
+
+    consume(TokenType::SEMICOLON, "Expect ';' after 'break'.");
+
+    for (int i = locals.size() - 1; i >= 0 && locals[i].depth > currentLoop->scopeDepth; i--) {
+        emitByte(static_cast<uint8_t>(OpCode::POP));
+    }
+
+    currentLoop->exitJumps.push_back(emitJump(static_cast<uint8_t>(OpCode::JUMP)));
 }
 
 void Parser::returnStatement() {
