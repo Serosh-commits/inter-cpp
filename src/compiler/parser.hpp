@@ -34,8 +34,17 @@ private:
     void ifStatement();
     void whileStatement();
     void forStatement();
+    void breakStatement();
     void returnStatement();
     void block();
+
+    struct Loop {
+        int start;
+        int scopeDepth;
+        std::vector<int> exitJumps;
+        Loop* enclosing;
+    };
+    Loop* currentLoop = nullptr;
 
     enum class Precedence {
         NONE, ASSIGNMENT, TERNARY, OR, AND, BIT_OR, BIT_XOR, BIT_AND, EQUALITY, COMPARISON, SHIFT,
