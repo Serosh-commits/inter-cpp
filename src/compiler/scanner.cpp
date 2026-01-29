@@ -141,6 +141,7 @@ Token Scanner::identifier() {
 TokenType Scanner::identifierType() {
     std::string text = source.substr(start, current - start);
     if (text == "and") return TokenType::AND;
+    if (text == "break") return TokenType::BREAK;
     if (text == "class") return TokenType::CLASS;
     if (text == "else") return TokenType::ELSE;
     if (text == "false") return TokenType::FALSE;
