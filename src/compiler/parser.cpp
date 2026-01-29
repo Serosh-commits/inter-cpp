@@ -364,58 +364,60 @@ void Parser::parsePrecedence(Precedence precedence) {
 
 Parser::ParseRule* Parser::getRule(TokenType type) {
     static ParseRule rules[] = {
-        {&Parser::grouping, &Parser::call, Precedence::CALL},
-        {nullptr, nullptr, Precedence::NONE},
-        {nullptr, nullptr, Precedence::NONE},
-        {nullptr, nullptr, Precedence::NONE},
-        {&Parser::list, &Parser::subscript, Precedence::CALL},
-        {nullptr, nullptr, Precedence::NONE},
-        {nullptr, nullptr, Precedence::NONE},
-        {nullptr, &Parser::dot, Precedence::CALL},
-        {&Parser::unary, &Parser::binary, Precedence::TERM},
-        {nullptr, &Parser::binary, Precedence::TERM},
-        {nullptr, nullptr, Precedence::NONE},
-        {nullptr, &Parser::binary, Precedence::FACTOR},
-        {nullptr, &Parser::binary, Precedence::FACTOR},
-        {nullptr, &Parser::pow, Precedence::INDICES},
-        {nullptr, &Parser::binary, Precedence::FACTOR},
-        {nullptr, &Parser::binary, Precedence::BIT_AND},
-        {nullptr, &Parser::binary, Precedence::BIT_OR},
-        {nullptr, &Parser::binary, Precedence::BIT_XOR},
-        {&Parser::unary, nullptr, Precedence::NONE},
-        {nullptr, &Parser::binary, Precedence::SHIFT},
-        {nullptr, &Parser::binary, Precedence::SHIFT},
-        {&Parser::unary, nullptr, Precedence::NONE},
-        {nullptr, &Parser::binary, Precedence::EQUALITY},
-        {nullptr, nullptr, Precedence::NONE},
-        {nullptr, &Parser::binary, Precedence::EQUALITY},
-        {nullptr, &Parser::binary, Precedence::COMPARISON},
-        {nullptr, &Parser::binary, Precedence::COMPARISON},
-        {nullptr, &Parser::binary, Precedence::COMPARISON},
-        {nullptr, &Parser::binary, Precedence::COMPARISON},
-        {&Parser::variable, nullptr, Precedence::NONE},
-        {&Parser::string, nullptr, Precedence::NONE},
-        {&Parser::number, nullptr, Precedence::NONE},
-        {nullptr, &Parser::and_, Precedence::AND},
-        {nullptr, nullptr, Precedence::NONE},
-        {nullptr, nullptr, Precedence::NONE},
-        {&Parser::literal, nullptr, Precedence::NONE},
-        {nullptr, nullptr, Precedence::NONE},
-        {nullptr, nullptr, Precedence::NONE},
-        {nullptr, nullptr, Precedence::NONE},
-        {&Parser::literal, nullptr, Precedence::NONE},
-        {nullptr, &Parser::or_, Precedence::OR},
-        {nullptr, nullptr, Precedence::NONE},
-        {nullptr, nullptr, Precedence::NONE},
-        {&Parser::super_, nullptr, Precedence::NONE},
-        {&Parser::this_, nullptr, Precedence::NONE},
-        {&Parser::literal, nullptr, Precedence::NONE},
-        {nullptr, nullptr, Precedence::NONE},
-        {nullptr, nullptr, Precedence::NONE},
-        {&Parser::unary, nullptr, Precedence::NONE},
-        {nullptr, nullptr, Precedence::NONE},
-        {nullptr, &Parser::ternary, Precedence::TERNARY},
-        {nullptr, nullptr, Precedence::NONE},
+        {&Parser::grouping, &Parser::call, Precedence::CALL}, // LEFT_PAREN
+        {nullptr, nullptr, Precedence::NONE}, // RIGHT_PAREN
+        {nullptr, nullptr, Precedence::NONE}, // LEFT_BRACE
+        {nullptr, nullptr, Precedence::NONE}, // RIGHT_BRACE
+        {&Parser::list, &Parser::subscript, Precedence::CALL}, // LEFT_BRACKET
+        {nullptr, nullptr, Precedence::NONE}, // RIGHT_BRACKET
+        {nullptr, nullptr, Precedence::NONE}, // COMMA
+        {nullptr, &Parser::dot, Precedence::CALL}, // DOT
+        {&Parser::unary, &Parser::binary, Precedence::TERM}, // MINUS
+        {nullptr, &Parser::binary, Precedence::TERM}, // PLUS
+        {nullptr, nullptr, Precedence::NONE}, // SEMICOLON
+        {nullptr, &Parser::binary, Precedence::FACTOR}, // SLASH
+        {nullptr, &Parser::binary, Precedence::FACTOR}, // STAR
+        {nullptr, &Parser::pow, Precedence::INDICES}, // STAR_STAR
+        {nullptr, &Parser::binary, Precedence::FACTOR}, // PERCENT
+        {nullptr, &Parser::binary, Precedence::BIT_AND}, // AMPERSAND
+        {nullptr, &Parser::binary, Precedence::BIT_OR}, // PIPE
+        {nullptr, &Parser::binary, Precedence::BIT_XOR}, // CARET
+        {&Parser::unary, nullptr, Precedence::NONE}, // TILDE
+        {nullptr, &Parser::binary, Precedence::SHIFT}, // LESS_LESS
+        {nullptr, &Parser::binary, Precedence::SHIFT}, // GREATER_GREATER
+        {&Parser::unary, nullptr, Precedence::NONE}, // BANG
+        {nullptr, &Parser::binary, Precedence::EQUALITY}, // BANG_EQUAL
+        {nullptr, nullptr, Precedence::NONE}, // EQUAL
+        {nullptr, &Parser::binary, Precedence::EQUALITY}, // EQUAL_EQUAL
+        {nullptr, &Parser::binary, Precedence::COMPARISON}, // GREATER
+        {nullptr, &Parser::binary, Precedence::COMPARISON}, // GREATER_EQUAL
+        {nullptr, &Parser::binary, Precedence::COMPARISON}, // LESS
+        {nullptr, &Parser::binary, Precedence::COMPARISON}, // LESS_EQUAL
+        {&Parser::variable, nullptr, Precedence::NONE}, // IDENTIFIER
+        {&Parser::string, nullptr, Precedence::NONE}, // STRING
+        {&Parser::number, nullptr, Precedence::NONE}, // NUMBER
+        {nullptr, &Parser::and_, Precedence::AND}, // AND
+        {nullptr, nullptr, Precedence::NONE}, // BREAK
+        {nullptr, nullptr, Precedence::NONE}, // CLASS
+        {nullptr, nullptr, Precedence::NONE}, // ELSE
+        {&Parser::literal, nullptr, Precedence::NONE}, // FALSE
+        {nullptr, nullptr, Precedence::NONE}, // FUN
+        {nullptr, nullptr, Precedence::NONE}, // FOR
+        {nullptr, nullptr, Precedence::NONE}, // IF
+        {&Parser::literal, nullptr, Precedence::NONE}, // NIL
+        {nullptr, &Parser::or_, Precedence::OR}, // OR
+        {nullptr, nullptr, Precedence::NONE}, // PRINT
+        {nullptr, nullptr, Precedence::NONE}, // RETURN
+        {&Parser::super_, nullptr, Precedence::NONE}, // SUPER
+        {&Parser::this_, nullptr, Precedence::NONE}, // THIS
+        {&Parser::literal, nullptr, Precedence::NONE}, // TRUE
+        {nullptr, nullptr, Precedence::NONE}, // VAR
+        {nullptr, nullptr, Precedence::NONE}, // WHILE
+        {&Parser::unary, nullptr, Precedence::NONE}, // TYPEOF
+        {nullptr, nullptr, Precedence::NONE}, // ERROR
+        {nullptr, nullptr, Precedence::NONE}, // TOKEN_EOF
+        {nullptr, &Parser::ternary, Precedence::TERNARY}, // QUESTION
+        {nullptr, nullptr, Precedence::NONE}, // COLON
     };
     return &rules[static_cast<int>(type)];
 }
