@@ -156,6 +156,7 @@ TokenType Scanner::identifierType() {
     if (text == "true") return TokenType::TRUE;
     if (text == "var") return TokenType::VAR;
     if (text == "while") return TokenType::WHILE;
+    if (text == "typeof") return TokenType::TYPEOF;
     return TokenType::IDENTIFIER;
 }
 
