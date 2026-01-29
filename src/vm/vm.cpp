@@ -20,6 +20,8 @@ VM::VM() {
     defineNative("input", 1, inputNative);
     defineNative("len", 1, lenNative);
     defineNative("append", 2, appendNative);
+    defineNative("range", 2, rangeNative);
+    defineNative("pop", 1, popNative);
 }
 
 VM::~VM() {
@@ -335,22 +337,31 @@ bool VM::run() {
             }
             case OpCode::GET_SUBSCRIPT: {
                 Value index = pop();
-                Value listVal = pop();
-                if (!isObjType(listVal, Obj::Type::LIST)) {
-                    runtimeError("Can only subscript lists.");
-                    return false;
-                }
+                Value val = pop();
                 if (!std::holds_alternative<double>(index)) {
                     runtimeError("Index must be a number.");
                     return false;
                 }
-                ObjList* list = AS_LIST(listVal);
                 int i = static_cast<int>(std::get<double>(index));
-                if (i < 0 || i >= static_cast<int>(list->elements.size())) {
-                    runtimeError("Index out of bounds.");
+
+                if (isObjType(val, Obj::Type::LIST)) {
+                    ObjList* list = AS_LIST(val);
+                    if (i < 0 || i >= static_cast<int>(list->elements.size())) {
+                        runtimeError("Index out of bounds.");
+                        return false;
+                    }
+                    push(list->elements[i]);
+                } else if (isObjType(val, Obj::Type::STRING)) {
+                    ObjString* string = AS_STRING(val);
+                    if (i < 0 || i >= static_cast<int>(string->str.length())) {
+                        runtimeError("Index out of bounds.");
+                        return false;
+                    }
+                    push(Value(allocateString(std::string(1, string->str[i]))));
+                } else {
+                    runtimeError("Can only subscript lists and strings.");
                     return false;
                 }
-                push(list->elements[i]);
                 break;
             }
             case OpCode::SET_SUBSCRIPT: {
@@ -458,6 +469,37 @@ Value VM::appendNative(VM& vm, const std::vector<Value>& args) {
     ObjList* list = AS_LIST(args[0]);
     list->elements.push_back(args[1]);
     return args[1];
+}
+
+Value VM::rangeNative(VM& vm, const std::vector<Value>& args) {
+    if (args.empty()) return Value(vm.newList());
+    int start = 0;
+    int end = 0;
+    if (args.size() == 1) {
+        if (!std::holds_alternative<double>(args[0])) return Value(vm.newList());
+        end = static_cast<int>(std::get<double>(args[0]));
+    } else {
+        if (!std::holds_alternative<double>(args[0]) || !std::holds_alternative<double>(args[1])) return Value(vm.newList());
+        start = static_cast<int>(std::get<double>(args[0]));
+        end = static_cast<int>(std::get<double>(args[1]));
+    }
+
+    ObjList* list = vm.newList();
+    for (int i = start; i < end; i++) {
+        list->elements.push_back(Value((double)i));
+    }
+    return Value(static_cast<Obj*>(list));
+}
+
+Value VM::popNative(VM& vm, const std::vector<Value>& args) {
+    if (args.empty() || !isObjType(args[0], Obj::Type::LIST)) {
+        return Value(nullptr);
+    }
+    ObjList* list = AS_LIST(args[0]);
+    if (list->elements.empty()) return Value(nullptr);
+    Value val = list->elements.back();
+    list->elements.pop_back();
+    return val;
 }
 
 ObjString* VM::allocateString(std::string s) {
