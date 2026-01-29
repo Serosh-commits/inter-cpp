@@ -80,4 +80,6 @@ private:
     static Value inputNative(VM&, const std::vector<Value>&);
     static Value lenNative(VM&, const std::vector<Value>&);
     static Value appendNative(VM&, const std::vector<Value>&);
+    static Value rangeNative(VM&, const std::vector<Value>&);
+    static Value popNative(VM&, const std::vector<Value>&);
 };
