@@ -379,7 +379,7 @@ Parser::ParseRule* Parser::getRule(TokenType type) {
         {&Parser::literal, nullptr, Precedence::NONE},
         {nullptr, nullptr, Precedence::NONE},
         {nullptr, nullptr, Precedence::NONE},
-        {nullptr, nullptr, Precedence::NONE},
+        {&Parser::unary, nullptr, Precedence::NONE},
         {nullptr, nullptr, Precedence::NONE},
         {nullptr, &Parser::ternary, Precedence::TERNARY},
         {nullptr, nullptr, Precedence::NONE},
@@ -399,6 +399,7 @@ void Parser::unary(bool canAssign) {
         case TokenType::MINUS: emitByte(static_cast<uint8_t>(OpCode::NEGATE)); break;
         case TokenType::BANG:  emitByte(static_cast<uint8_t>(OpCode::NOT)); break;
         case TokenType::TILDE: emitByte(static_cast<uint8_t>(OpCode::BIT_NOT)); break;
+        case TokenType::TYPEOF: emitByte(static_cast<uint8_t>(OpCode::TYPEOF)); break;
         default: return;
     }
 }
