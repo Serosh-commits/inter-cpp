@@ -10,4 +10,6 @@ public:
     ObjClass* superclass = nullptr;
 
     ObjClass(ObjString* n) : Obj(Type::CLASS), name(n) {}
+    void blacken(VM& vm) override;
+    std::string toString() const override;
 };

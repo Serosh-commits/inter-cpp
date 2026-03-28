@@ -9,4 +9,6 @@ public:
     std::unordered_map<std::string, Value> fields;
 
     ObjInstance(ObjClass* k) : Obj(Type::INSTANCE), klass(k) {}
+    void blacken(VM& vm) override;
+    std::string toString() const override;
 };
