@@ -21,6 +21,9 @@ public:
 
     explicit Obj(Type t) : type(t) {}
     virtual ~Obj() = default;
+
+    virtual void blacken(VM& vm) = 0;
+    virtual std::string toString() const = 0;
 };
 
 #define AS_OBJ(value)       (std::get<Obj*>(value))
