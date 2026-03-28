@@ -19,3 +19,10 @@ ObjString* ObjString::takeString(VM& vm, char* chars, int length) {
     delete[] chars;
     return vm.allocateString(std::move(s));
 }
+
+void ObjString::blacken(VM& vm) {
+}
+
+std::string ObjString::toString() const {
+    return str;
+}

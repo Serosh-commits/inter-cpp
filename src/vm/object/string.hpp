@@ -11,4 +11,7 @@ public:
 
     static ObjString* copyString(VM& vm, const char* chars, int length);
     static ObjString* takeString(VM& vm, char* chars, int length);
+
+    void blacken(VM& vm) override;
+    std::string toString() const override;
 };
