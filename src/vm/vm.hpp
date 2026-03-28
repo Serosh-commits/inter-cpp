@@ -52,6 +52,8 @@ public:
     Value pop() { return *--stackTop; }
     Value peek(int distance) const { return stackTop[-1 - distance]; }
 
+    void markObject(Obj* object);
+    void markValue(const Value& value);
 private:
     bool run();
     bool call(ObjClosure* closure, int argCount);
@@ -70,9 +72,7 @@ private:
     void markRoots();
     void traceReferences();
     void sweep();
-    void markObject(Obj* object);
     void blackenObject(Obj* object);
-    void markValue(const Value& value);
     void freeObject(Obj* object);
     void freeObjects();
 

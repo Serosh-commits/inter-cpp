@@ -310,9 +310,18 @@ bool VM::run() {
                 frame = &frames[frameCount - 1];
                 break;
             }
+            case OpCode::SUPER_INVOKE: {
+                ObjString* method = READ_STRING();
+                int argCount = READ_BYTE();
+                ObjClass* superclass = AS_CLASS(pop());
+                if (!invokeFromClass(superclass, method, argCount)) return false;
+                frame = &frames[frameCount - 1];
+                break;
+            }
             case OpCode::INHERIT: {
                 ObjClass* superclass = AS_CLASS(peek(1));
                 ObjClass* subclass = AS_CLASS(peek(0));
+                subclass->superclass = superclass;
                 for (auto& pair : superclass->methods) {
                     subclass->methods[pair.first] = pair.second;
                 }
@@ -598,59 +607,7 @@ void VM::traceReferences() {
 }
 
 void VM::blackenObject(Obj* object) {
-    switch (object->type) {
-        case Obj::Type::CLASS: {
-            ObjClass* klass = reinterpret_cast<ObjClass*>(object);
-            markObject(reinterpret_cast<Obj*>(klass->name));
-            for (auto& pair : klass->methods) {
-                markValue(pair.second);
-            }
-            break;
-        }
-        case Obj::Type::CLOSURE: {
-            ObjClosure* closure = reinterpret_cast<ObjClosure*>(object);
-            markObject(reinterpret_cast<Obj*>(closure->function));
-            for (int i = 0; i < closure->upvalues.size(); ++i) {
-                markObject(reinterpret_cast<Obj*>(closure->upvalues[i]));
-            }
-            break;
-        }
-        case Obj::Type::FUNCTION: {
-            ObjFunction* function = reinterpret_cast<ObjFunction*>(object);
-            markObject(reinterpret_cast<Obj*>(function->name));
-            for (Value constant : function->chunk.constants) {
-                markValue(constant);
-            }
-            break;
-        }
-        case Obj::Type::INSTANCE: {
-            ObjInstance* instance = reinterpret_cast<ObjInstance*>(object);
-            markObject(reinterpret_cast<Obj*>(instance->klass));
-            for (auto& pair : instance->fields) {
-                markValue(pair.second);
-            }
-            break;
-        }
-        case Obj::Type::BOUND_METHOD: {
-            ObjBoundMethod* bound = reinterpret_cast<ObjBoundMethod*>(object);
-            markValue(bound->receiver);
-            markObject(reinterpret_cast<Obj*>(bound->method));
-            break;
-        }
-        case Obj::Type::UPVALUE:
-            markValue(((ObjUpvalue*)object)->closed);
-            break;
-        case Obj::Type::NATIVE:
-        case Obj::Type::STRING:
-            break;
-        case Obj::Type::LIST: {
-            ObjList* list = reinterpret_cast<ObjList*>(object);
-            for (Value& val : list->elements) {
-                markValue(val);
-            }
-            break;
-        }
-    }
+    object->blacken(*this);
 }
 
 void VM::sweep() {
@@ -687,17 +644,7 @@ void VM::markValue(const Value& value) {
 }
 
 void VM::freeObject(Obj* object) {
-    switch (object->type) {
-        case Obj::Type::STRING: delete static_cast<ObjString*>(object); break;
-        case Obj::Type::FUNCTION: delete static_cast<ObjFunction*>(object); break;
-        case Obj::Type::CLOSURE: delete static_cast<ObjClosure*>(object); break;
-        case Obj::Type::UPVALUE: delete static_cast<ObjUpvalue*>(object); break;
-        case Obj::Type::CLASS: delete static_cast<ObjClass*>(object); break;
-        case Obj::Type::INSTANCE: delete static_cast<ObjInstance*>(object); break;
-        case Obj::Type::BOUND_METHOD: delete static_cast<ObjBoundMethod*>(object); break;
-        case Obj::Type::NATIVE: delete static_cast<ObjNative*>(object); break;
-        case Obj::Type::LIST: delete static_cast<ObjList*>(object); break;
-    }
+    delete object;
 }
 
 void VM::freeObjects() {
@@ -738,12 +685,19 @@ bool VM::callValue(Value callee, int argCount) {
                 return call(bound->method, argCount);
             }
             case Obj::Type::CLASS: {
-                ObjClass* klass = AS_CLASS(callee);
+                ObjClass* klass = reinterpret_cast<ObjClass*>(obj);
                 stackTop[-argCount - 1] = Value(newInstance(klass));
-                auto init = klass->methods.find("init");
-                if (init != klass->methods.end()) {
-                    return call(AS_CLOSURE(init->second), argCount);
-                } else if (argCount != 0) {
+                
+                ObjClass* current = klass;
+                while (current != nullptr) {
+                    auto method = current->methods.find("init");
+                    if (method != current->methods.end()) {
+                        return call(AS_CLOSURE(method->second), argCount);
+                    }
+                    current = current->superclass;
+                }
+
+                if (argCount != 0) {
                     runtimeError("Expected 0 arguments but got %d.", argCount);
                     return false;
                 }
@@ -855,26 +809,7 @@ std::string valueToString(const Value& value) {
     if (std::holds_alternative<bool>(value)) return std::get<bool>(value) ? "true" : "false";
     if (std::holds_alternative<std::nullptr_t>(value)) return "nil";
     if (std::holds_alternative<Obj*>(value)) {
-        Obj* obj = std::get<Obj*>(value);
-        if (obj->type == Obj::Type::STRING) return AS_STRING(value)->str;
-        if (obj->type == Obj::Type::FUNCTION) {
-            ObjFunction* f = AS_FUNCTION(value);
-            return f->name ? "<fn " + f->name->str + ">" : "<script>";
-        }
-        if (obj->type == Obj::Type::CLASS) return AS_CLASS(value)->name->str;
-        if (obj->type == Obj::Type::INSTANCE) return AS_INSTANCE(value)->klass->name->str + " instance";
-        if (obj->type == Obj::Type::BOUND_METHOD) return "<bound method>";
-        if (obj->type == Obj::Type::NATIVE) return "<native fn>";
-        if (obj->type == Obj::Type::LIST) {
-            ObjList* list = AS_LIST(value);
-            std::string result = "[";
-            for (size_t i = 0; i < list->elements.size(); i++) {
-                if (i > 0) result += ", ";
-                result += valueToString(list->elements[i]);
-            }
-            result += "]";
-            return result;
-        }
+        return std::get<Obj*>(value)->toString();
     }
     return "<object>";
 }
