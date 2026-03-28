@@ -8,4 +8,6 @@ public:
     std::vector<Value> elements;
 
     ObjList() : Obj(Type::LIST) {}
+    void blacken(VM& vm) override;
+    std::string toString() const override;
 };

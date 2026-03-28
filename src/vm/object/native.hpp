@@ -12,4 +12,6 @@ public:
 
     ObjNative(NativeFn function, int arity)
         : Obj(Type::NATIVE), function(function), arity(arity) {}
+    void blacken(VM& vm) override;
+    std::string toString() const override;
 };

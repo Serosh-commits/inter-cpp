@@ -9,4 +9,6 @@ public:
     ObjClosure* method;
 
     ObjBoundMethod(Value r, ObjClosure* m) : Obj(Type::BOUND_METHOD), receiver(r), method(m) {}
+    void blacken(VM& vm) override;
+    std::string toString() const override;
 };
