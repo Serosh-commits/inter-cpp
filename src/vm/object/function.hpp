@@ -10,4 +10,6 @@ public:
     ObjString* name = nullptr;
 
     ObjFunction() : Obj(Type::FUNCTION) {}
+    void blacken(VM& vm) override;
+    std::string toString() const override;
 };
