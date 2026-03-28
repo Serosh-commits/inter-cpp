@@ -14,6 +14,19 @@ public:
     ObjFunction* compile();
 
 private:
+    enum class FunctionType { SCRIPT, FUNCTION, INITIALIZER, METHOD };
+    struct Compiler {
+        ObjFunction* function;
+        FunctionType type;
+        struct Local { std::string name; int depth; bool initialized; bool isUpvalue; };
+        std::vector<Local> locals;
+        int scopeDepth;
+        struct Upvalue { uint8_t index; bool isLocal; };
+        std::vector<Upvalue> upvalues;
+        Compiler* enclosing;
+    };
+    Compiler* currentCompiler = nullptr;
+
     void advance();
     void consume(TokenType type, const char* message);
     bool match(TokenType type);
@@ -83,6 +96,7 @@ private:
     void beginScope();
     void endScope();
     int resolveLocal(const std::string& name);
+    int resolveLocalInCompiler(Compiler* compiler, const std::string& name);
     uint8_t argumentList();
 
     Chunk* currentChunk();
@@ -96,13 +110,13 @@ private:
     void defineMethod(ObjString* name);
     void endCompiler();
 
-    ObjFunction* compiling = nullptr;
-    struct Local { std::string name; int depth; bool initialized; };
-    std::vector<Local> locals;
-    int scopeDepth = 0;
-
-    struct Upvalue { uint8_t index; bool isLocal; };
-    std::vector<Upvalue> upvalues;
+    void initCompiler(Compiler* compiler, FunctionType type);
+    void function(FunctionType type);
+    int resolveUpvalue(Compiler* compiler, const std::string& name);
+    int addUpvalue(Compiler* compiler, uint8_t index, bool isLocal);
+    uint8_t identifierConstant(const Token& name);
+    void declareVariable();
+    void defineVariable(uint8_t global);
 
     class ClassCompiler {
     public:

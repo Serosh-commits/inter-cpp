@@ -9,13 +9,34 @@ Parser::Parser(VM& v, const std::string& src) : vm(v), scanner(src) {
 }
 
 ObjFunction* Parser::compile() {
-    compiling = vm.newFunction();
-    locals.push_back({"", 0, true});
+    Compiler compiler;
+    initCompiler(&compiler, FunctionType::SCRIPT);
     while (!match(TokenType::TOKEN_EOF)) {
         declaration();
     }
     endCompiler();
-    return hadError ? nullptr : compiling;
+    return hadError ? nullptr : compiler.function;
+}
+
+void Parser::initCompiler(Compiler* compiler, FunctionType type) {
+    compiler->enclosing = currentCompiler;
+    compiler->function = vm.newFunction();
+    compiler->type = type;
+    compiler->scopeDepth = 0;
+    currentCompiler = compiler;
+
+    if (type != FunctionType::SCRIPT) {
+        currentCompiler->function->name = vm.allocateString(std::string(previous.start, previous.length));
+    }
+
+    currentCompiler->locals.push_back({(type != FunctionType::FUNCTION ? "this" : ""), 0, true, false});
+}
+
+void Parser::endCompiler() {
+    emitReturn();
+    if (currentCompiler->enclosing != nullptr) {
+        currentCompiler = currentCompiler->enclosing;
+    }
 }
 
 void Parser::advance() {
@@ -104,10 +125,11 @@ void Parser::declaration() {
 void Parser::classDeclaration() {
     consume(TokenType::IDENTIFIER, "Expect class name.");
     Token className = previous;
-    uint8_t nameConstant = makeConstant(Value(vm.allocateString(std::string(className.start, className.length))));
-    emitBytes(static_cast<uint8_t>(OpCode::CLASS), nameConstant);
+    uint8_t nameConstant = identifierConstant(className);
+    declareVariable();
 
-    defineMethod(vm.allocateString(std::string(className.start, className.length)));
+    emitBytes(static_cast<uint8_t>(OpCode::CLASS), nameConstant);
+    defineVariable(nameConstant);
 
     ClassCompiler classCompiler;
     classCompiler.enclosing = this->classCompiler;
@@ -115,15 +137,19 @@ void Parser::classDeclaration() {
 
     if (match(TokenType::LESS)) {
         consume(TokenType::IDENTIFIER, "Expect superclass name.");
-
         if (className.length == previous.length && memcmp(className.start, previous.start, className.length) == 0) {
             error("A class cannot inherit from itself.");
         }
+        namedVariable(previous, false);
         beginScope();
-
-        emitBytes(static_cast<uint8_t>(OpCode::GET_GLOBAL), makeConstant(Value(vm.allocateString(std::string(previous.start, previous.length)))));
+        currentCompiler->locals.push_back({"super", currentCompiler->scopeDepth, true, false});
         this->classCompiler->hasSuperclass = true;
+        
+        namedVariable(className, false);
+        emitByte(static_cast<uint8_t>(OpCode::INHERIT));
     }
+
+    namedVariable(className, false);
 
     consume(TokenType::LEFT_BRACE, "Expect '{' before class body.");
     while (!check(TokenType::RIGHT_BRACE) && !check(TokenType::TOKEN_EOF)) {
@@ -131,52 +157,96 @@ void Parser::classDeclaration() {
     }
     consume(TokenType::RIGHT_BRACE, "Expect '}' after class body.");
 
-    if (this->classCompiler->hasSuperclass) {
-        endScope();
-    }
+    emitByte(static_cast<uint8_t>(OpCode::POP));
+    if (this->classCompiler->hasSuperclass) endScope();
 
     this->classCompiler = classCompiler.enclosing;
 }
 
 void Parser::funDeclaration(const std::string& kind) {
-    uint8_t global = 0;
     consume(TokenType::IDENTIFIER, ("Expect " + kind + " name.").c_str());
+    uint8_t global = identifierConstant(previous);
+    if (kind != "method") declareVariable();
 
-    std::string name(previous.start, previous.length);
-    global = makeConstant(Value(vm.allocateString(name)));
+    FunctionType type = FunctionType::FUNCTION;
+    if (kind == "method") {
+        type = (previous.length == 4 && memcmp(previous.start, "init", 4) == 0) ? FunctionType::INITIALIZER : FunctionType::METHOD;
+    }
 
-    ObjFunction* function = vm.newFunction();
+    function(type);
 
+    if (kind != "method") {
+        defineVariable(global);
+    } else {
+        emitBytes(static_cast<uint8_t>(OpCode::METHOD), global);
+    }
+}
 
-    consume(TokenType::LEFT_PAREN, ("Expect '(' after " + kind + " name.").c_str());
+void Parser::function(FunctionType type) {
+    Compiler compiler;
+    initCompiler(&compiler, type);
+    beginScope();
+    consume(TokenType::LEFT_PAREN, "Expect '(' after function name.");
+    if (!check(TokenType::RIGHT_PAREN)) {
+        do {
+            currentCompiler->function->arity++;
+            if (currentCompiler->function->arity > 255) errorAtCurrent("Can't have more than 255 parameters.");
+            consume(TokenType::IDENTIFIER, "Expect parameter name.");
+            uint8_t constant = identifierConstant(previous);
+            declareVariable();
+            defineVariable(constant);
+        } while (match(TokenType::COMMA));
+    }
     consume(TokenType::RIGHT_PAREN, "Expect ')' after parameters.");
-    consume(TokenType::LEFT_BRACE, ("Expect '{' before " + kind + " body.").c_str());
+    consume(TokenType::LEFT_BRACE, "Expect '{' before function body.");
     block();
 
+    ObjFunction* f = currentCompiler->function;
+    auto ups = currentCompiler->upvalues;
+    endCompiler();
+    uint8_t constant = makeConstant(Value(f));
+    emitBytes(static_cast<uint8_t>(OpCode::CLOSURE), constant);
 
+    for (const auto& up : ups) {
+        emitByte(up.isLocal ? 1 : 0);
+        emitByte(up.index);
+    }
 }
 
 void Parser::varDeclaration() {
-    consume(TokenType::IDENTIFIER, "Expect variable name.");
-    Token nameToken = previous;
-
-    if (scopeDepth > 0) {
-        locals.push_back({std::string(nameToken.start, nameToken.length), scopeDepth, false});
-    }
-
+    uint8_t global = identifierConstant(current);
+    advance();
+    declareVariable();
     if (match(TokenType::EQUAL)) {
         expression();
     } else {
         emitByte(static_cast<uint8_t>(OpCode::NIL));
     }
     consume(TokenType::SEMICOLON, "Expect ';' after variable declaration.");
+    defineVariable(global);
+}
 
-    if (scopeDepth > 0) {
-        locals.back().initialized = true;
-    } else {
-        uint8_t global = makeConstant(Value(vm.allocateString(std::string(nameToken.start, nameToken.length))));
-        emitBytes(static_cast<uint8_t>(OpCode::DEFINE_GLOBAL), global);
+void Parser::declareVariable() {
+    if (currentCompiler->scopeDepth == 0) return;
+    std::string name(previous.start, previous.length);
+    for (int i = currentCompiler->locals.size() - 1; i >= 0; i--) {
+        if (currentCompiler->locals[i].depth != -1 && currentCompiler->locals[i].depth < currentCompiler->scopeDepth) break;
+        if (name == currentCompiler->locals[i].name) error("Already a variable with this name in this scope.");
     }
+    currentCompiler->locals.push_back({name, -1, false, false});
+}
+
+void Parser::defineVariable(uint8_t global) {
+    if (currentCompiler->scopeDepth > 0) {
+        currentCompiler->locals.back().depth = currentCompiler->scopeDepth;
+        currentCompiler->locals.back().initialized = true;
+        return;
+    }
+    emitBytes(static_cast<uint8_t>(OpCode::DEFINE_GLOBAL), global);
+}
+
+uint8_t Parser::identifierConstant(const Token& name) {
+    return makeConstant(Value(vm.allocateString(std::string(name.start, name.length))));
 }
 
 void Parser::statement() {
@@ -236,7 +306,7 @@ void Parser::whileStatement() {
     expression();
     consume(TokenType::RIGHT_PAREN, "Expect ')' after condition.");
 
-    Loop loop = {loopStart, scopeDepth, {}, currentLoop};
+    Loop loop = {loopStart, currentCompiler->scopeDepth, {}, currentLoop};
     currentLoop = &loop;
 
     int exitJump = emitJump(static_cast<uint8_t>(OpCode::JUMP_IF_FALSE));
@@ -273,7 +343,7 @@ void Parser::forStatement() {
         emitByte(static_cast<uint8_t>(OpCode::POP));
     }
 
-    Loop loop = {loopStart, scopeDepth, {}, currentLoop};
+    Loop loop = {loopStart, currentCompiler->scopeDepth, {}, currentLoop};
     currentLoop = &loop;
 
     if (!match(TokenType::RIGHT_PAREN)) {
@@ -312,7 +382,7 @@ void Parser::breakStatement() {
 
     consume(TokenType::SEMICOLON, "Expect ';' after 'break'.");
 
-    for (int i = locals.size() - 1; i >= 0 && locals[i].depth > currentLoop->scopeDepth; i--) {
+    for (int i = currentCompiler->locals.size() - 1; i >= 0 && currentCompiler->locals[i].depth > currentLoop->scopeDepth; i--) {
         emitByte(static_cast<uint8_t>(OpCode::POP));
     }
 
@@ -364,60 +434,60 @@ void Parser::parsePrecedence(Precedence precedence) {
 
 Parser::ParseRule* Parser::getRule(TokenType type) {
     static ParseRule rules[] = {
-        {&Parser::grouping, &Parser::call, Precedence::CALL}, // LEFT_PAREN
-        {nullptr, nullptr, Precedence::NONE}, // RIGHT_PAREN
-        {nullptr, nullptr, Precedence::NONE}, // LEFT_BRACE
-        {nullptr, nullptr, Precedence::NONE}, // RIGHT_BRACE
-        {&Parser::list, &Parser::subscript, Precedence::CALL}, // LEFT_BRACKET
-        {nullptr, nullptr, Precedence::NONE}, // RIGHT_BRACKET
-        {nullptr, nullptr, Precedence::NONE}, // COMMA
-        {nullptr, &Parser::dot, Precedence::CALL}, // DOT
-        {&Parser::unary, &Parser::binary, Precedence::TERM}, // MINUS
-        {nullptr, &Parser::binary, Precedence::TERM}, // PLUS
-        {nullptr, nullptr, Precedence::NONE}, // SEMICOLON
-        {nullptr, &Parser::binary, Precedence::FACTOR}, // SLASH
-        {nullptr, &Parser::binary, Precedence::FACTOR}, // STAR
-        {nullptr, &Parser::pow, Precedence::INDICES}, // STAR_STAR
-        {nullptr, &Parser::binary, Precedence::FACTOR}, // PERCENT
-        {nullptr, &Parser::binary, Precedence::BIT_AND}, // AMPERSAND
-        {nullptr, &Parser::binary, Precedence::BIT_OR}, // PIPE
-        {nullptr, &Parser::binary, Precedence::BIT_XOR}, // CARET
-        {&Parser::unary, nullptr, Precedence::NONE}, // TILDE
-        {nullptr, &Parser::binary, Precedence::SHIFT}, // LESS_LESS
-        {nullptr, &Parser::binary, Precedence::SHIFT}, // GREATER_GREATER
-        {&Parser::unary, nullptr, Precedence::NONE}, // BANG
-        {nullptr, &Parser::binary, Precedence::EQUALITY}, // BANG_EQUAL
-        {nullptr, nullptr, Precedence::NONE}, // EQUAL
-        {nullptr, &Parser::binary, Precedence::EQUALITY}, // EQUAL_EQUAL
-        {nullptr, &Parser::binary, Precedence::COMPARISON}, // GREATER
-        {nullptr, &Parser::binary, Precedence::COMPARISON}, // GREATER_EQUAL
-        {nullptr, &Parser::binary, Precedence::COMPARISON}, // LESS
-        {nullptr, &Parser::binary, Precedence::COMPARISON}, // LESS_EQUAL
-        {&Parser::variable, nullptr, Precedence::NONE}, // IDENTIFIER
-        {&Parser::string, nullptr, Precedence::NONE}, // STRING
-        {&Parser::number, nullptr, Precedence::NONE}, // NUMBER
-        {nullptr, &Parser::and_, Precedence::AND}, // AND
-        {nullptr, nullptr, Precedence::NONE}, // BREAK
-        {nullptr, nullptr, Precedence::NONE}, // CLASS
-        {nullptr, nullptr, Precedence::NONE}, // ELSE
-        {&Parser::literal, nullptr, Precedence::NONE}, // FALSE
-        {nullptr, nullptr, Precedence::NONE}, // FUN
-        {nullptr, nullptr, Precedence::NONE}, // FOR
-        {nullptr, nullptr, Precedence::NONE}, // IF
-        {&Parser::literal, nullptr, Precedence::NONE}, // NIL
-        {nullptr, &Parser::or_, Precedence::OR}, // OR
-        {nullptr, nullptr, Precedence::NONE}, // PRINT
-        {nullptr, nullptr, Precedence::NONE}, // RETURN
-        {&Parser::super_, nullptr, Precedence::NONE}, // SUPER
-        {&Parser::this_, nullptr, Precedence::NONE}, // THIS
-        {&Parser::literal, nullptr, Precedence::NONE}, // TRUE
-        {nullptr, nullptr, Precedence::NONE}, // VAR
-        {nullptr, nullptr, Precedence::NONE}, // WHILE
-        {&Parser::unary, nullptr, Precedence::NONE}, // TYPEOF
-        {nullptr, nullptr, Precedence::NONE}, // ERROR
-        {nullptr, nullptr, Precedence::NONE}, // TOKEN_EOF
-        {nullptr, &Parser::ternary, Precedence::TERNARY}, // QUESTION
-        {nullptr, nullptr, Precedence::NONE}, // COLON
+        {&Parser::grouping, &Parser::call, Precedence::CALL},
+        {nullptr, nullptr, Precedence::NONE},
+        {nullptr, nullptr, Precedence::NONE},
+        {nullptr, nullptr, Precedence::NONE},
+        {&Parser::list, &Parser::subscript, Precedence::CALL},
+        {nullptr, nullptr, Precedence::NONE},
+        {nullptr, nullptr, Precedence::NONE},
+        {nullptr, &Parser::dot, Precedence::CALL},
+        {&Parser::unary, &Parser::binary, Precedence::TERM},
+        {nullptr, &Parser::binary, Precedence::TERM},
+        {nullptr, nullptr, Precedence::NONE},
+        {nullptr, &Parser::binary, Precedence::FACTOR},
+        {nullptr, &Parser::binary, Precedence::FACTOR},
+        {nullptr, &Parser::pow, Precedence::INDICES},
+        {nullptr, &Parser::binary, Precedence::FACTOR},
+        {nullptr, &Parser::binary, Precedence::BIT_AND},
+        {nullptr, &Parser::binary, Precedence::BIT_OR},
+        {nullptr, &Parser::binary, Precedence::BIT_XOR},
+        {&Parser::unary, nullptr, Precedence::NONE},
+        {nullptr, &Parser::binary, Precedence::SHIFT},
+        {nullptr, &Parser::binary, Precedence::SHIFT},
+        {&Parser::unary, nullptr, Precedence::NONE},
+        {nullptr, &Parser::binary, Precedence::EQUALITY},
+        {nullptr, nullptr, Precedence::NONE},
+        {nullptr, &Parser::binary, Precedence::EQUALITY},
+        {nullptr, &Parser::binary, Precedence::COMPARISON},
+        {nullptr, &Parser::binary, Precedence::COMPARISON},
+        {nullptr, &Parser::binary, Precedence::COMPARISON},
+        {nullptr, &Parser::binary, Precedence::COMPARISON},
+        {&Parser::variable, nullptr, Precedence::NONE},
+        {&Parser::string, nullptr, Precedence::NONE},
+        {&Parser::number, nullptr, Precedence::NONE},
+        {nullptr, &Parser::and_, Precedence::AND},
+        {nullptr, nullptr, Precedence::NONE},
+        {nullptr, nullptr, Precedence::NONE},
+        {nullptr, nullptr, Precedence::NONE},
+        {&Parser::literal, nullptr, Precedence::NONE},
+        {nullptr, nullptr, Precedence::NONE},
+        {nullptr, nullptr, Precedence::NONE},
+        {nullptr, nullptr, Precedence::NONE},
+        {&Parser::literal, nullptr, Precedence::NONE},
+        {nullptr, &Parser::or_, Precedence::OR},
+        {nullptr, nullptr, Precedence::NONE},
+        {nullptr, nullptr, Precedence::NONE},
+        {&Parser::super_, nullptr, Precedence::NONE},
+        {&Parser::this_, nullptr, Precedence::NONE},
+        {&Parser::literal, nullptr, Precedence::NONE},
+        {nullptr, nullptr, Precedence::NONE},
+        {nullptr, nullptr, Precedence::NONE},
+        {&Parser::unary, nullptr, Precedence::NONE},
+        {nullptr, nullptr, Precedence::NONE},
+        {nullptr, nullptr, Precedence::NONE},
+        {nullptr, &Parser::ternary, Precedence::TERNARY},
+        {nullptr, nullptr, Precedence::NONE},
     };
     return &rules[static_cast<int>(type)];
 }
@@ -510,13 +580,16 @@ void Parser::variable(bool canAssign) {
 }
 
 void Parser::namedVariable(const Token& name, bool canAssign) {
-
     uint8_t arg = 0;
     int local = resolveLocal(std::string(name.start, name.length));
     OpCode getOp, setOp;
     if (local != -1) {
         getOp = OpCode::GET_LOCAL;
         setOp = OpCode::SET_LOCAL;
+        arg = (uint8_t)local;
+    } else if ((local = resolveUpvalue(currentCompiler, std::string(name.start, name.length))) != -1) {
+        getOp = OpCode::GET_UPVALUE;
+        setOp = OpCode::SET_UPVALUE;
         arg = (uint8_t)local;
     } else {
         arg = makeConstant(Value(vm.allocateString(std::string(name.start, name.length))));
@@ -570,11 +643,34 @@ void Parser::dot(bool canAssign) {
 }
 
 void Parser::this_(bool canAssign) {
-
+    if (classCompiler == nullptr) {
+        error("Can't use 'this' outside of a class.");
+        return;
+    }
+    namedVariable(previous, false);
 }
 
 void Parser::super_(bool canAssign) {
+    if (classCompiler == nullptr) {
+        error("Can't use 'super' outside of a class.");
+    } else if (!classCompiler->hasSuperclass) {
+        error("Can't use 'super' in a class with no superclass.");
+    }
 
+    consume(TokenType::DOT, "Expect '.' after 'super'.");
+    consume(TokenType::IDENTIFIER, "Expect superclass method name.");
+    uint8_t name = identifierConstant(previous);
+
+    namedVariable(Token{TokenType::THIS, "this", 4, previous.line}, false);
+    if (match(TokenType::LEFT_PAREN)) {
+        uint8_t argCount = argumentList();
+        namedVariable(Token{TokenType::SUPER, "super", 5, previous.line}, false);
+        emitBytes(static_cast<uint8_t>(OpCode::SUPER_INVOKE), name);
+        emitByte(argCount);
+    } else {
+        namedVariable(Token{TokenType::SUPER, "super", 5, previous.line}, false);
+        emitBytes(static_cast<uint8_t>(OpCode::GET_SUPER), name);
+    }
 }
 
 void Parser::list(bool canAssign) {
@@ -604,12 +700,42 @@ void Parser::subscript(bool canAssign) {
 }
 
 int Parser::resolveLocal(const std::string& name) {
-    for (int i = locals.size() - 1; i >= 0; i--) {
-        if (locals[i].name == name) {
+    return resolveLocalInCompiler(currentCompiler, name);
+}
+
+int Parser::resolveLocalInCompiler(Compiler* compiler, const std::string& name) {
+    for (int i = compiler->locals.size() - 1; i >= 0; i--) {
+        if (compiler->locals[i].name == name) {
+            if (compiler->locals[i].depth == -1) error("Can't read local variable in its own initializer.");
             return i;
         }
     }
     return -1;
+}
+
+int Parser::resolveUpvalue(Compiler* compiler, const std::string& name) {
+    if (compiler->enclosing == nullptr) return -1;
+    int local = resolveLocalInCompiler(compiler->enclosing, name);
+    if (local != -1) {
+        compiler->enclosing->locals[local].isUpvalue = true;
+        return addUpvalue(compiler, (uint8_t)local, true);
+    }
+    int upvalue = resolveUpvalue(compiler->enclosing, name);
+    if (upvalue != -1) return addUpvalue(compiler, (uint8_t)upvalue, false);
+    return -1;
+}
+
+int Parser::addUpvalue(Compiler* compiler, uint8_t index, bool isLocal) {
+    int upvalueCount = compiler->function->upvalueCount;
+    for (int i = 0; i < upvalueCount; i++) {
+        if (compiler->upvalues[i].index == index && compiler->upvalues[i].isLocal == isLocal) return i;
+    }
+    if (upvalueCount == 256) {
+        error("Too many closure variables in function.");
+        return 0;
+    }
+    compiler->upvalues.push_back({index, isLocal});
+    return compiler->function->upvalueCount++;
 }
 
 uint8_t Parser::argumentList() {
@@ -628,7 +754,7 @@ uint8_t Parser::argumentList() {
 }
 
 Chunk* Parser::currentChunk() {
-    return &compiling->chunk;
+    return &currentCompiler->function->chunk;
 }
 
 void Parser::emitByte(uint8_t byte) {
@@ -641,7 +767,11 @@ void Parser::emitBytes(uint8_t a, uint8_t b) {
 }
 
 void Parser::emitReturn() {
-    emitByte(static_cast<uint8_t>(OpCode::NIL));
+    if (currentCompiler->type == FunctionType::INITIALIZER) {
+        emitBytes(static_cast<uint8_t>(OpCode::GET_LOCAL), 0);
+    } else {
+        emitByte(static_cast<uint8_t>(OpCode::NIL));
+    }
     emitByte(static_cast<uint8_t>(OpCode::RETURN));
 }
 
@@ -683,22 +813,22 @@ void Parser::emitConstant(Value value) {
 }
 
 void Parser::beginScope() {
-    scopeDepth++;
+    currentCompiler->scopeDepth++;
 }
 
 void Parser::endScope() {
-    scopeDepth--;
-    while (locals.size() > 0 && locals.back().depth > scopeDepth) {
-        emitByte(static_cast<uint8_t>(OpCode::POP));
-        locals.pop_back();
+    currentCompiler->scopeDepth--;
+    while (currentCompiler->locals.size() > 0 && currentCompiler->locals.back().depth > currentCompiler->scopeDepth) {
+        if (currentCompiler->locals.back().isUpvalue) {
+            emitByte(static_cast<uint8_t>(OpCode::CLOSE_UPVALUE));
+        } else {
+            emitByte(static_cast<uint8_t>(OpCode::POP));
+        }
+        currentCompiler->locals.pop_back();
     }
 }
 
 void Parser::defineMethod(ObjString* name) {
     uint8_t constant = makeConstant(Value(name));
     emitBytes(static_cast<uint8_t>(OpCode::METHOD), constant);
-}
-
-void Parser::endCompiler() {
-    emitReturn();
 }
