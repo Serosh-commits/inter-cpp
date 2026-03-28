@@ -14,6 +14,9 @@ add_executable(intercpp
     src/vm/object/upvalue.cpp
     src/vm/object/class.cpp
     src/vm/object/instance.cpp
+    src/vm/object/list.cpp
+    src/vm/object/native.cpp
+    src/vm/object/bound_method.cpp
     src/compiler/scanner.cpp
     src/compiler/parser.cpp
 )
