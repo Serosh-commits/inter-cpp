@@ -12,4 +12,6 @@ public:
     ObjClosure(ObjFunction* f) : Obj(Type::CLOSURE), function(f) {
         upvalues.resize(f->upvalueCount);
     }
+    void blacken(VM& vm) override;
+    std::string toString() const override;
 };
